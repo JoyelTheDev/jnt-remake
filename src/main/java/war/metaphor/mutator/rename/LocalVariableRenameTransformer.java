@@ -62,7 +62,7 @@ import java.util.Map;
  * </pre>
  */
 @Stability(Level.VERY_HIGH)
-public class LocalVariableRenameMutator extends Mutator {
+public class LocalVariableRenameTransformer extends Mutator {
 
     private static final Logger logger = Logger.INSTANCE;
 
@@ -89,7 +89,7 @@ public class LocalVariableRenameMutator extends Mutator {
 
     // ── constructor ───────────────────────────────────────────────────────────
 
-    public LocalVariableRenameMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public LocalVariableRenameTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
         this.mode     = Dictionary.Mode.of(config == null ? null : config.getString("dictionary", "random"));
         this.prefix   = config == null ? "" : config.getString("prefix", "");
