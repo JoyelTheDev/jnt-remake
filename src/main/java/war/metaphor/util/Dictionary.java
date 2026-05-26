@@ -5,53 +5,16 @@ import lombok.experimental.UtilityClass;
 import java.security.SecureRandom;
 import java.util.*;
 
-/**
- * Dictionary — centralised name generator for all rename mutators.
- *
- * <h3>Naming modes</h3>
- * Each mode is selected via the {@code dictionary} key in the mutator's
- * config section (e.g. {@code renamer.class.dictionary: illusion}).
- *
- * <table>
- *   <tr><th>Mode</th><th>Example output</th><th>Description</th></tr>
- *   <tr><td>{@code random}  </td><td>{@code xkqbf}      </td><td>Lowercase a–z only (original behaviour, default)</td></tr>
- *   <tr><td>{@code alpha}   </td><td>{@code aB3xZ}      </td><td>Mixed-case letters + digits — maximises search-space per char</td></tr>
- *   <tr><td>{@code illusion}</td><td>{@code lIllIlIlI}  </td><td>Only I, l, 1 — visually indistinguishable in most fonts</td></tr>
- *   <tr><td>{@code unicode} </td><td>{@code аІоМх}      </td><td>Cyrillic/Greek lookalikes for Latin letters</td></tr>
- *   <tr><td>{@code keyword} </td><td>{@code ifdo$}      </td><td>Java keywords mangled with $ — confuses naive decompilers</td></tr>
- *   <tr><td>{@code counter} </td><td>{@code a_0, a_1}   </td><td>Deterministic prefix_n — reproducible across runs</td></tr>
- *   <tr><td>{@code runic}   </td><td>{@code ᚠᚢᚦᚨᚱ}      </td><td>Elder Futhark / Futhorc runes — all valid JVM identifiers</td></tr>
- *   <tr><td>{@code cjk}     </td><td>{@code 漢字語文明}    </td><td>CJK Unified Ideographs U+4E00–U+9FFF — valid JVM identifiers</td></tr>
- *   <tr><td>{@code gothic}  </td><td>{@code 𐌰𐌱𐌲𐌳𐌴}      </td><td>Gothic script — supplementary plane, valid JVM identifiers</td></tr>
- *   <tr><td>{@code chaos}   </td><td>{@code ᚠ漢аᛃ𐌲字р}   </td><td>Random mix of all four Unicode pools — maximum entropy</td></tr>
- * </table>
- *
- * <h3>Config example</h3>
- * <pre>
- * renamer.local:
- *   enabled: true
- *   dictionary: chaos   # mode name — see table above
- *   prefix: ""          # prepended verbatim before the generated segment
- *   length: 5           # base length hint (in codepoints; Gothic names are
- *                       # longer in UTF-16 chars since each glyph = 2 units)
- * </pre>
- *
- * The {@code gen(length, purpose)} overload preserves backward-compatibility
- * and always uses {@link Mode#RANDOM}.
- */
+
 @UtilityClass
 public class Dictionary {
 
-    // ── character sets — BMP pools (char[]) ───────────────────────────────────
 
     private static final String STRICT_CHARS   = "abcdefghijklmnopqrstuvwxyz";
     private static final String ALPHA_CHARS    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final String ILLUSION_CHARS = "IlI1lIl1";
 
-    /**
-     * Cyrillic/Greek codepoints visually identical to Latin letters.
-     * All are valid Java identifier start characters (Lu/Ll categories).
-     */
+    
     private static final char[] UNICODE_LOOKALIKES = {
         '\u0430', // а  (looks like a)
         '\u0435', // е  (looks like e)
