@@ -20,13 +20,13 @@ import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
 @Stability(Level.HIGH)
-public class ClassRenameMutator extends MappingMutator {
+public class ClassRenameTransformer extends MappingMutator {
 
     private final Dictionary.Mode mode;
     private final String          prefix;
     private final int             length;
 
-    public ClassRenameMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public ClassRenameTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
         this.mode   = Dictionary.Mode.of(config == null ? null : config.getString("dictionary", "random"));
         this.prefix = config == null ? "" : config.getString("prefix", "");

@@ -25,10 +25,10 @@ import war.metaphor.util.asm.BytecodeUtil;
 import java.util.*;
 
 @Stability(war.jnt.annotate.Level.MEDIUM)
-public class LiftInitializersMutator extends Mutator {
+public class LiftInitializersTransformer extends Mutator {
     public static List<String> crashReasons = new ArrayList<>();
 
-    public LiftInitializersMutator(ObfuscatorContext context, ConfigurationSection config) {
+    public LiftInitializersTransformer(ObfuscatorContext context, ConfigurationSection config) {
         super(context, config);
     }
 

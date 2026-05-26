@@ -14,9 +14,9 @@ import java.lang.reflect.Modifier;
 import java.util.concurrent.ThreadPoolExecutor;
 
 @Stability(Level.UNKNOWN)
-public class MultiNewArrayMutator extends Mutator {
+public class MultiNewArrayTransformer extends Mutator {
 
-    public MultiNewArrayMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public MultiNewArrayTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

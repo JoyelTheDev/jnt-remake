@@ -15,9 +15,9 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Stability(Level.HIGH)
-public class ReferenceMutator extends Mutator {
+public class ReferenceTransformer extends Mutator {
 
-    public ReferenceMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public ReferenceTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

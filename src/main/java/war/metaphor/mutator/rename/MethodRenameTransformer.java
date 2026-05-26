@@ -1,6 +1,6 @@
 package war.metaphor.mutator.rename;
 
-import org.objectweb.asm.tree.FieldNode;
+import org.objectweb.asm.tree.MethodNode;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
@@ -8,27 +8,25 @@ import war.jnt.utility.mapping.Mapping;
 import war.jnt.utility.mapping.impl.MemberIdentity;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.MappingMutator;
-import war.metaphor.tree.ClassField;
+import war.metaphor.tree.ClassMethod;
 import war.metaphor.tree.Hierarchy;
 import war.metaphor.tree.JClassNode;
 import war.metaphor.util.Dictionary;
 import war.metaphor.util.Purpose;
 
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-/*
-TODO:   Could be faster, I dont think we need very STRICT hierarchy checks for fields, but I did it just in case
-*/
 @Stability(Level.HIGH)
-public class FieldRenameMutator extends MappingMutator {
+public class MethodRenameTransformer extends MappingMutator {
 
     private final Dictionary.Mode mode;
     private final String          prefix;
     private final int             length;
 
-    public FieldRenameMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public MethodRenameTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
         this.mode   = Dictionary.Mode.of(config == null ? null : config.getString("dictionary", "random"));
         this.prefix = config == null ? "" : config.getString("prefix", "");
@@ -45,35 +43,48 @@ public class FieldRenameMutator extends MappingMutator {
             Set<JClassNode> classTree = Hierarchy.INSTANCE.getClassHierarchy(classNode);
             classTree.add(classNode);
 
-            for (FieldNode field : classNode.fields) {
-                if (classNode.isExempt(field)) continue;
+            for (MethodNode method : classNode.methods) {
+                if (classNode.isExempt(method)
+                        || (method.name.equals("main") && method.desc.equals("([Ljava/lang/String;)V"))
+                        || (classNode.isEnum() && method.name.equals("values"))
+                        || (classNode.isEnum() && method.name.equals("valueOf"))
+                        || method.name.equals("<init>")
+                        || method.name.equals("<clinit>")
+                        || (method.signature != null && method.signature.equals("bsm::jnt:excluded"))
+                ) {
+                    continue;
+                }
 
-                ClassField self = ClassField.of(classNode, field);
-                if (mapping.containsKey(self.toString())) continue;
+                ClassMethod self = ClassMethod.of(classNode, method);
+                Set<ClassMethod> methodTree = Hierarchy.INSTANCE.getMethodHierarchy(self);
 
-                Set<ClassField> fieldTree = Hierarchy.INSTANCE.getFieldHierarchy(self);
-                if (!canRenameField(fieldTree)) continue;
+                if (!canRenameMethod(methodTree)) continue;
 
                 String newName = null;
 
                 for (JClassNode node : classTree) {
-                    String id = node.name + "." + field.name + field.desc;
+                    String id = node.name + "." + method.name + method.desc;
                     if (mapping.containsKey(id)) {
                         newName = mapping.get(id);
                     }
                 }
 
                 if (newName == null) {
-                    newName = Dictionary.gen(length, Purpose.FIELD, mode, prefix);
+                    newName = Dictionary.gen(length, Purpose.METHOD, mode, prefix);
                 }
 
                 for (JClassNode node : classTree) {
-                    String id = node.name + "." + field.name + field.desc;
+                    if (node.isLibrary()) continue;
+                    String id = node.name + "." + method.name + method.desc;
                     mapping.put(id, newName);
                 }
 
+                if (method.signature == null || !method.signature.startsWith("plot::ark")) {
+                    method.signature = "plot::ark:" + Base64.getEncoder().encodeToString(method.name.getBytes());
+                }
+
                 base.getRepository().add(new Mapping(
-                        new MemberIdentity(".f_same " + classNode.name, field.name, ""),
+                        new MemberIdentity(".m_same " + classNode.name, method.name, ""),
                         new MemberIdentity(classNode.name, newName, "")
                 ));
             }

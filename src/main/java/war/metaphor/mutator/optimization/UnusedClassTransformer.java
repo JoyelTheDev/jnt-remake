@@ -13,8 +13,8 @@ import java.lang.reflect.Modifier;
 import java.util.HashSet;
 
 @Stability(Level.UNKNOWN)
-public class UnusedClassMutator extends Mutator {
-    public UnusedClassMutator(ObfuscatorContext base, ConfigurationSection config) {
+public class UnusedClassTransformer extends Mutator {
+    public UnusedClassTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

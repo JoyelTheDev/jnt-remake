@@ -16,8 +16,8 @@ import java.util.ArrayList;
 import java.util.Set;
 
 @Stability(Level.UNKNOWN)
-public class UnusedMethodMutator extends Mutator {
-    public UnusedMethodMutator(ObfuscatorContext base, ConfigurationSection config) {
+public class UnusedMethodTransformer extends Mutator {
+    public UnusedMethodTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

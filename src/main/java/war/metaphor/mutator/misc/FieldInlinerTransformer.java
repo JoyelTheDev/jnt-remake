@@ -15,9 +15,8 @@ import java.lang.reflect.Modifier;
  * Puts field values into the correct initalising methods
  */
 @Stability(Level.UNKNOWN)
-public class FieldInlinerMutator extends Mutator {
-
-    public FieldInlinerMutator(ObfuscatorContext base, ConfigurationSection config) {
+public class FieldInlinerTransformer extends Mutator {
+    public FieldInlinerTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

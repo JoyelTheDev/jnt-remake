@@ -22,14 +22,14 @@ import java.util.Map;
 import java.util.Set;
 
 @Stability(Level.UNKNOWN)
-public class OpaquePredicatesMutator extends Mutator {
+public class OpaquePredicatesTransformer extends Mutator {
 
     private final List<Opaque> opaques = List.of(
             new SwitchOpaque(),
             new IntegerOpaque()
     );
 
-    public OpaquePredicatesMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public OpaquePredicatesTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 
@@ -39,34 +39,21 @@ public class OpaquePredicatesMutator extends Mutator {
             if (classNode.isExempt()) continue;
             for (MethodNode method : classNode.methods) {
                 if (classNode.isExempt(method)) continue;
-
                 int leeway = BytecodeUtil.leeway(method);
                 if (leeway < 30000)
                     continue;
-
                 ControlFlowGraph graph = new ControlFlowGraph(classNode, method);
-
                 if (!graph.compute()) continue;
-
                 if (graph.getBlocks().isEmpty()) continue;
-
                 int predicateLocal = method.maxLocals++;
-
                 int initialSeed = RandomUtils.nextInt();
-
                 graph.getStartBlock().setSeed(initialSeed);
-
                 for (Block block : graph.getBlocks())
                     block.setSeed(initialSeed);
-
-                // Add the initial seed to the method
                 InsnList list = new InsnList();
-
                 list.add(BytecodeUtil.generateInteger(initialSeed));
                 list.add(new VarInsnNode(ISTORE, predicateLocal));
                 method.instructions.insert(list);
-
-                // Add seeds at each vertex
                 for (Block block : graph.getBlocks()) {
                     int blockSeed = block.getSeed();
                     for (Block vertex : block.getVertices()) {
@@ -87,28 +74,21 @@ public class OpaquePredicatesMutator extends Mutator {
                     }
                 }
 
-                // Add seeds to switches
                 for (AbstractInsnNode instruction : method.instructions) {
                     Block block = graph.getContainingBlock(instruction);
                     if (block == null) continue;
                     int blockSeed = block.getSeed();
                     if (instruction instanceof LookupSwitchInsnNode || instruction instanceof TableSwitchInsnNode) {
 
-                        // Clone the original switch,
-                        // based off the key, set the new opaque on the supposed target block
-
                         Map<LabelNode, LabelNode> newLabels = new HashMap<>();
                         List<LabelNode> targets = graph.getJumpTargets(instruction);
-
                         for (LabelNode target : targets) {
                             newLabels.put(target, new LabelNode());
                         }
 
                         AbstractInsnNode clone = graph.clone(instruction);
                         LabelNode end = new LabelNode();
-
                         InsnList blockList = new InsnList();
-
                         blockList.add(new InsnNode(DUP));
                         blockList.add(clone);
 
@@ -125,13 +105,11 @@ public class OpaquePredicatesMutator extends Mutator {
                         }
 
                         blockList.add(end);
-
                         method.instructions.insertBefore(instruction, blockList);
 
                     }
                 }
 
-                // Add seeds to trap handlers
                 for (Block block : graph.getBlocks()) {
                     int targetSeed = block.getSeed();
                     if (block.isTrapHandler()) {
@@ -144,28 +122,21 @@ public class OpaquePredicatesMutator extends Mutator {
 
                             Map<LabelNode, Integer> labelSeeds = new HashMap<>();
                             LabelNode dflt = new LabelNode();
-
                             for (Block accessor : block.getTrapAccessors())
                                 labelSeeds.put(new LabelNode(), accessor.getSeed());
                             labelSeeds.put(new LabelNode(), targetSeed);
-
                             LookupSwitchInsnNode lookupSwitch = new LookupSwitchInsnNode(dflt, labelSeeds.values().stream().mapToInt(Integer::intValue).toArray(), labelSeeds.keySet().toArray(new LabelNode[0]));
-
                             BytecodeUtil.fixLookupSwitch(lookupSwitch);
                             LabelNode end = new LabelNode();
-
                             InsnList lookupList = new InsnList();
-
                             lookupList.add(new VarInsnNode(ILOAD, predicateLocal));
                             lookupList.add(lookupSwitch);
-
                             lookupList.add(dflt);
                             lookupList.add(new TypeInsnNode(NEW, "java/lang/RuntimeException"));
                             lookupList.add(new InsnNode(DUP));
                             lookupList.add(new LdcInsnNode("Error in Hash"));
                             lookupList.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/RuntimeException", "<init>", "(Ljava/lang/String;)V", false));
                             lookupList.add(new InsnNode(ATHROW));
-
                             for (LabelNode label : labelSeeds.keySet()) {
                                 lookupList.add(label);
                                 lookupList.add(InsnListBuilder.builder()
@@ -175,7 +146,6 @@ public class OpaquePredicatesMutator extends Mutator {
                             }
 
                             lookupList.add(end);
-
                             method.instructions.insert(block.getStart(), lookupList);
 
                         }

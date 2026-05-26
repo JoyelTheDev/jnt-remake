@@ -23,13 +23,13 @@ import java.lang.reflect.Modifier;
 import java.util.*;
 
 @Stability(war.jnt.annotate.Level.LOW)
-public class MethodInliningMutator extends Mutator {
+public class MethodInliningTransformer extends Mutator {
 
     private final boolean debug;
     private int iterate;
     private final List<String> membersExempt;
 
-    public MethodInliningMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public MethodInliningTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
         debug = config.getBoolean("debug", false);
         iterate = config.getInt("iterate", 0);

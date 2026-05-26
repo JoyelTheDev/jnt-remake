@@ -20,9 +20,8 @@ import java.util.Comparator;
 import java.util.stream.Stream;
 
 @Stability(Level.HIGH)
-public class DotExportMutator extends Mutator {
-
-    public DotExportMutator(ObfuscatorContext base, ConfigurationSection config) {
+public class DotExportTransformer extends Mutator {
+    public DotExportTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

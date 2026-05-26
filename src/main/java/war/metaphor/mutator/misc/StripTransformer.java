@@ -13,9 +13,9 @@ import war.metaphor.tree.JClassNode;
 import java.lang.reflect.Modifier;
 
 @Stability(Level.VERY_HIGH)
-public class StripMutator extends Mutator {
+public class StripTransformer extends Mutator {
 
-    public StripMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public StripTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

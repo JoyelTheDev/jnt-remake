@@ -19,9 +19,9 @@ import java.util.Set;
 TODO:   Need proper impl of this shit, it was rushed af
  */
 @Stability(Level.UNKNOWN)
-public class DescriptorMutator extends MappingMutator {
+public class DescriptorTransformer extends MappingMutator {
 
-    public DescriptorMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public DescriptorTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

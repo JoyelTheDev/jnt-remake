@@ -13,9 +13,9 @@ import war.metaphor.tree.JClassNode;
 import java.util.concurrent.SubmissionPublisher;
 
 @Stability(Level.MEDIUM)
-public class AccessUnifyMutator extends Mutator {
+public class AccessUnifyTransformer extends Mutator {
 
-    public AccessUnifyMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public AccessUnifyTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

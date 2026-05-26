@@ -15,14 +15,12 @@ import war.metaphor.mutator.integrity.method.MethodIntegrityMutator;
 import war.metaphor.mutator.loader.*;
 import war.metaphor.mutator.misc.*;
 import war.metaphor.mutator.split.*;
-import war.metaphor.mutator.optimization.OptimizationMutator;
-import war.metaphor.mutator.optimization.UnusedClassMutator;
-import war.metaphor.mutator.optimization.UnusedMethodMutator;
-import war.metaphor.mutator.parameter.ExchangeMutator;
-import war.metaphor.mutator.ref.ReferenceMutator;
-import war.metaphor.mutator.runtime.RuntimePatchMutator;
+import war.metaphor.mutator.optimization.*;
+import war.metaphor.mutator.parameter.*;
+import war.metaphor.mutator.ref.ReferenceTransformer;
+import war.metaphor.mutator.runtime.*;
 import war.metaphor.mutator.splash.SplashScreenMutator;
-import war.metaphor.mutator.virtualization.VirtualizingTransformer;
+import war.metaphor.mutator.virtualization.*;
 
 import java.nio.file.Path;
 
@@ -41,23 +39,23 @@ public class Metaphor {
                 .manifest(intake.getManifest())
 
                 .mutator("method-call-fix", MethodCallFixer.class)
-                .mutator("bootstrap-entry", BootstrapEntryMutator.class)
+                .mutator("bootstrap-entry", BootstrapEntryTransformer.class)
 
-                .mutator("unused-method-remover", UnusedMethodMutator.class)
-                .mutator("unused-class-remover", UnusedClassMutator.class)
+                .mutator("unused-method-remover", UnusedMethodTransformer.class)
+                .mutator("unused-class-remover", UnusedClassTransformer.class)
 
-                .mutator("optimizer", OptimizationMutator.class)
-                .mutator("inlining", MethodInliningMutator.class)
-                .mutator("field-initialize", FieldInlinerMutator.class)
-                .mutator("access-unify", AccessUnifyMutator.class)
+                .mutator("optimizer", OptimizationTransformer.class)
+                .mutator("inlining", MethodInliningTransformer.class)
+                .mutator("field-initialize", FieldInlinerTransformer.class)
+                .mutator("access-unify", AccessUnifyTransformer.class)
 
-                .mutator("internal-class-integrator", InternalClassIntegrateMutator.class)
+                .mutator("internal-class-integrator", InternalClassIntegrateTransformer.class)
 
-                .mutator("renamer.class", ClassRenameMutator.class)
-                .mutator("renamer.method", MethodRenameMutator.class)
-                .mutator("renamer.field", FieldRenameMutator.class)
+                .mutator("renamer.class", ClassRenameTransformer.class)
+                .mutator("renamer.method", MethodRenameTransformer.class)
+                .mutator("renamer.field", FieldRenameTransformer.class)
                 .mutator("renamer.localvariable", LocalVariableRenameTransformer.class)
-                .mutator("renamer.desc", DescriptorMutator.class)
+                .mutator("renamer.desc", DescriptorTransformer.class)
 
                 .mutator("main-call-check", MainCallCheckMutator.class)
                 .mutator("call-graph", CallGraphIntegrityMutator.class)
@@ -74,13 +72,13 @@ public class Metaphor {
                 .mutator("string.stack", StringStackTransformer.class)
                 .mutator("ahegao", AhegaoTransformer.class)
             
-                .mutator("flow.break", BlockBreakMutator.class)
-                .mutator("flow.flattening", ControlFlowFlatteningMutator.class)
+                .mutator("flow.break", BlockBreakTransformer.class)
+                .mutator("flow.flattening", ControlFlowFlatteningTransformer.class)
                 .mutator("method-split",    MethodSplitTransformer.class)
-                .mutator("flow.shuffle", InstructionShuffleMutator.class)
-                .mutator("flow.switch", SwitchMutator.class)
-                .mutator("flow.traps", TrapEdgeMutator.class)
-                .mutator("flow.opaque", OpaquePredicatesMutator.class)
+                .mutator("flow.shuffle", InstructionShuffleTransformer.class)
+                .mutator("flow.switch", SwitchTransformer.class)
+                .mutator("flow.traps", TrapEdgeTransformer.class)
+                .mutator("flow.opaque", OpaquePredicatesTransformer.class)
             
                 .mutator("number.salt", SaltingIntegerTransformer.class)
                 .mutator("number.table", IntegerTableTransformer.class)
@@ -91,26 +89,26 @@ public class Metaphor {
                 .mutator("virtualize",  VirtualizingTransformer.class)  
                 
 
-                .mutator("ref", ReferenceMutator.class)
+                .mutator("ref", ReferenceTransformer.class)
                 .mutator("var-duplicate", VarDuplicateTransformer.class)
 
-                .mutator("lift-constructors", LiftInitializersMutator.class)
+                .mutator("lift-constructors", LiftInitializersTransformer.class)
 
-                .mutator("watermark", WatermarkMutator.class)
+                .mutator("watermark", WatermarkTransformer.class)
 
-                .mutator("strip", StripMutator.class)
+                .mutator("strip", StripTransformer.class)
 
-                .mutator("dot-graph", DotExportMutator.class)
+                .mutator("dot-graph", DotExportTransformer.class)
 
                 .mutator("indy-rewriter", IndyTransformer.class)
 
                 .mutator("splash-screen", SplashScreenMutator.class)
 
                 //.mutator("goto-to-jsr", GotoToJsrMutator.class)
-                .mutator("array-rewriter", MultiNewArrayMutator.class)
+                .mutator("array-rewriter", MultiNewArrayTransformer.class)
 
-                .mutator("runtime-patch", RuntimePatchMutator.class)
-                .mutator("exchange", ExchangeMutator.class)
+                .mutator("runtime-patch", RuntimePatchTransformer.class)
+                .mutator("exchange", ExchangeTransformer.class)
                 .build();
     }
 

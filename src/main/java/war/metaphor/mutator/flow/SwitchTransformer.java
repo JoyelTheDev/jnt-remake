@@ -14,9 +14,9 @@ import war.metaphor.util.asm.BytecodeUtil;
 import java.lang.reflect.Modifier;
 
 @Stability(Level.HIGH)
-public class SwitchMutator extends Mutator {
+public class SwitchTransformer extends Mutator {
 
-    public SwitchMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public SwitchTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 
@@ -27,7 +27,6 @@ public class SwitchMutator extends Mutator {
             for (MethodNode method : classNode.methods) {
                 if (Modifier.isAbstract(method.access)) continue;
                 if (classNode.isExempt(method)) continue;
-
                 int leeway = BytecodeUtil.leeway(method);
                 if (leeway < 30000)
                     break;
@@ -49,18 +48,13 @@ public class SwitchMutator extends Mutator {
                 }
                 for (AbstractInsnNode instruction : method.instructions) {
                     if (instruction instanceof LookupSwitchInsnNode node) {
-
                         InsnList instructions = new InsnList();
-
                         Engine engine = new IntegerEngine(6);
                         instructions.add(engine.getForwardInstructions());
-
                         method.instructions.insertBefore(node, instructions);
-
                         node.keys.replaceAll(
                                 engine::run
                         );
-
                         BytecodeUtil.fixLookupSwitch(node);
                     }
                 }

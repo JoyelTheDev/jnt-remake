@@ -26,9 +26,9 @@ import java.util.Map;
 import java.util.Set;
 
 @Stability(war.jnt.annotate.Level.VERY_HIGH)
-public class IntegrateLoaderMutator extends Mutator {
+public class IntegrateLoaderTransformer extends Mutator {
 
-    public IntegrateLoaderMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public IntegrateLoaderTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 
@@ -44,13 +44,10 @@ public class IntegrateLoaderMutator extends Mutator {
             JClassNode cn = new JClassNode();
             cr.accept(cn, ClassReader.SKIP_FRAMES);
             cn.version = V1_8;
-
             BlockBreakMutator blockBreakMutator = new BlockBreakMutator(base, null);
             ControlFlowFlatteningMutator flatteningMutator = new ControlFlowFlatteningMutator(base, null);
-
             blockBreakMutator.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
             flatteningMutator.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
-
             for (AbstractInsnNode instruction : cn.getStaticInit().instructions) {
                 if (instruction instanceof LdcInsnNode node) {
                     if (node.cst instanceof String str && str.equals("/war/jnt/")) {
@@ -60,11 +57,9 @@ public class IntegrateLoaderMutator extends Mutator {
             }
 
             base.addClass(cn);
-
             cn.name = libPath + "/Loader";
             ClassRenameMutator renamer = new ClassRenameMutator(base, null);
             renamer.map(base, Map.of("war/jnt/Loader", libPath + "/Loader"));
-
         } catch (Throwable t) {
             throw new RuntimeException("Failed to load Loader class", t);
         }

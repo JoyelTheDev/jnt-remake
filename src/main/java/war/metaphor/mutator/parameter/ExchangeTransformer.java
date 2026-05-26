@@ -14,8 +14,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ExchangeMutator extends Mutator {
-    public ExchangeMutator(ObfuscatorContext base, ConfigurationSection config) {
+public class ExchangeTransformer extends Mutator {
+    public ExchangeTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

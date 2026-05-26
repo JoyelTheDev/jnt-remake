@@ -21,9 +21,9 @@ import java.util.*;
  * @author jan
  */
 @Stability(Level.VERY_HIGH)
-public class ControlFlowFlatteningMutator extends Mutator {
+public class ControlFlowFlatteningTransformer extends Mutator {
 
-    public ControlFlowFlatteningMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public ControlFlowFlatteningTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

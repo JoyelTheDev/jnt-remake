@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import war.metaphor.tree.JClassNode;
 
 @Stability(Level.UNKNOWN)
-public class RuntimePatchMutator extends Mutator {
-    public RuntimePatchMutator(ObfuscatorContext base, ConfigurationSection config) {
+public class RuntimePatchTransformer extends Mutator {
+    public RuntimePatchTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
     

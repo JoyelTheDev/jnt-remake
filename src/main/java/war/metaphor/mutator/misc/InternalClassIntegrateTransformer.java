@@ -21,11 +21,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Stability(war.jnt.annotate.Level.VERY_LOW)
-public class InternalClassIntegrateMutator extends Mutator {
+public class InternalClassIntegrateTransformer extends Mutator {
 
     private static final Logger LOGGER = new Logger();
 
-    public InternalClassIntegrateMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public InternalClassIntegrateTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

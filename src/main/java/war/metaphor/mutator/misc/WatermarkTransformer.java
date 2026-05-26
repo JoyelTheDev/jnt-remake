@@ -10,9 +10,9 @@ import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
 
 @Stability(Level.VERY_HIGH)
-public class WatermarkMutator extends Mutator {
+public class WatermarkTransformer extends Mutator {
 
-    public WatermarkMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public WatermarkTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

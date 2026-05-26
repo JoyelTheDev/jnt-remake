@@ -15,9 +15,9 @@ import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
 
 @Stability(Level.VERY_HIGH)
-public class CleanupMutator extends Mutator {
+public class CleanupTransformer extends Mutator {
 
-    public CleanupMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public CleanupTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 
@@ -30,13 +30,10 @@ public class CleanupMutator extends Mutator {
             if (classNode.isExempt()) continue;
             if (classNode.isInterface()) continue;
             InsnList insnList = new InsnList();
-
             insnList.add(new LdcInsnNode(Type.getType("L" + classNode.name + ";")));
             insnList.add(new MethodInsnNode(Opcodes.INVOKESTATIC, libPath + "/Loader", "init", "(Ljava/lang/Class;)V"));
-
             MethodNode clinit = classNode.getStaticInit();
             clinit.instructions.insert(insnList);
-
             for (MethodNode method : classNode.methods) {
                 if (classNode.isExempt(method)) continue;
                 if (Internal.disallowedTranspile(classNode, method)) continue;

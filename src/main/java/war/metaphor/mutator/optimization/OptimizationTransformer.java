@@ -23,11 +23,11 @@ import java.util.Set;
  */
 @SuppressWarnings("ALL")
 @Stability(Level.VERY_LOW)
-public class OptimizationMutator extends Mutator {
+public class OptimizationTransformer extends Mutator {
 
     private Map<String, Set<Block>> blockCache = new HashMap<>();
 
-    public OptimizationMutator(ObfuscatorContext base, ConfigurationSection config) {
+    public OptimizationTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 

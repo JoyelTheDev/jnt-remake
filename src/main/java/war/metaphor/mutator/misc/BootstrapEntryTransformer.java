@@ -11,8 +11,8 @@ import war.metaphor.tree.JClassNode;
 import java.util.List;
 
 @Stability(Level.HIGH)
-public class BootstrapEntryMutator extends Mutator {
-    public BootstrapEntryMutator(ObfuscatorContext base, ConfigurationSection config) {
+public class BootstrapEntryTransformer extends Mutator {
+    public BootstrapEntryTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 
