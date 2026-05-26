@@ -13,8 +13,6 @@ public class Dictionary {
     private static final String STRICT_CHARS   = "abcdefghijklmnopqrstuvwxyz";
     private static final String ALPHA_CHARS    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final String ILLUSION_CHARS = "IlI1lIl1";
-
-    
     private static final char[] UNICODE_LOOKALIKES = {
         '\u0430', // а  (looks like a)
         '\u0435', // е  (looks like e)
@@ -39,11 +37,6 @@ public class Dictionary {
         '\u03A7', // Χ  (looks like X)
     };
 
-    /**
-     * All 86 Elder Futhark / Futhorc / Medieval rune codepoints in the
-     * Runic block (U+16A0–U+16F8) that satisfy {@code Character.isLetter()}.
-     * Every entry is a valid Java identifier start character.
-     */
     private static final char[] RUNIC_CHARS = {
         '\u16A0', '\u16A1', '\u16A2', '\u16A3', '\u16A4', '\u16A5', '\u16A6', '\u16A7',
         '\u16A8', '\u16A9', '\u16AA', '\u16AB', '\u16AC', '\u16AD', '\u16AE', '\u16AF',
@@ -58,18 +51,6 @@ public class Dictionary {
         '\u16F3', '\u16F4', '\u16F5', '\u16F6', '\u16F7', '\u16F8',
     };
 
-    /**
-     * All 27 Gothic script letters (U+10330–U+1034A) that satisfy
-     * {@code Character.isLetter()}.
-     *
-     * <p><b>Supplementary plane — stored as int codepoints, not chars.</b>
-     * Gothic lies above U+FFFF, so each glyph encodes as a UTF-16 surrogate
-     * pair (two {@code char} units).  Use {@link #randomGothic(int)} which
-     * calls {@code StringBuilder.appendCodePoint()} to build valid strings.
-     * The output is always a legally-encoded Java {@code String} and a valid
-     * JVM identifier, but its {@code length()} in chars will be {@code 2×n}
-     * for {@code n} requested codepoints.
-     */
     private static final int[] GOTHIC_CODEPOINTS = {
         0x10330, 0x10331, 0x10332, 0x10333, 0x10334, 0x10335, 0x10336, 0x10337,
         0x10338, 0x10339, 0x1033A, 0x1033B, 0x1033C, 0x1033D, 0x1033E, 0x1033F,
@@ -77,7 +58,6 @@ public class Dictionary {
         0x10348, 0x10349, 0x1034A,
     };
 
-    /** Java reserved words — illegal bare identifiers, legal with $ appended. */
     private static final String[] KEYWORDS = {
         "if", "do", "for", "int", "new", "try", "var",
         "byte", "case", "char", "else", "enum", "goto", "long", "null",
@@ -90,25 +70,13 @@ public class Dictionary {
         "transient"
     };
 
-    // ── RNG ───────────────────────────────────────────────────────────────────
-
     private static final SecureRandom rand = new SecureRandom();
-
-    // ── used-name registries (one per Purpose, global across the run) ─────────
-
     private static final Set<String> usedClass   = new HashSet<>();
     private static final Set<String> usedField   = new HashSet<>();
     private static final Set<String> usedMethod  = new HashSet<>();
     private static final Set<String> usedGeneric = new HashSet<>();
-
-    // per-purpose counter for Mode.COUNTER
     private static final Map<Purpose, Long> counters = new EnumMap<>(Purpose.class);
-
-    // ── public API ────────────────────────────────────────────────────────────
-
-    /**
-     * Naming modes understood by {@link #gen(int, Purpose, Mode, String)}.
-     */
+    
     public enum Mode {
 
         /**
@@ -193,10 +161,6 @@ public class Dictionary {
          */
         CHAOS;
 
-        /**
-         * Parse a mode name case-insensitively, falling back to {@link #RANDOM}
-         * for unknown values.
-         */
         public static Mode of(String name) {
             if (name == null || name.isBlank()) return RANDOM;
             return switch (name.trim().toLowerCase()) {
@@ -214,30 +178,10 @@ public class Dictionary {
         }
     }
 
-    // ── generation ────────────────────────────────────────────────────────────
-
-    /**
-     * Backward-compatible overload — always uses {@link Mode#RANDOM} with no prefix.
-     * All existing callers continue to work without change.
-     */
     public String gen(int length, Purpose purpose) {
         return gen(length, purpose, Mode.RANDOM, "");
     }
 
-    /**
-     * Generate a unique identifier for the given {@code purpose} using the
-     * specified {@code mode}.
-     *
-     * @param length  base length hint in <em>codepoints</em> (exact for all
-     *                modes except KEYWORD and COUNTER which ignore it; Gothic
-     *                names will have {@code 2×length} UTF-16 chars)
-     * @param purpose namespace bucket — prevents collisions between classes,
-     *                methods, fields, and generic names; {@code null} skips
-     *                global tracking (caller manages uniqueness)
-     * @param mode    naming strategy
-     * @param prefix  string prepended verbatim before the generated segment
-     *                (empty string = no prefix)
-     */
     public String gen(int length, Purpose purpose, Mode mode, String prefix) {
         String candidate;
         Set<String> used = usedSetFor(purpose);
@@ -257,7 +201,6 @@ public class Dictionary {
         usedSetFor(purpose).add(s);
     }
 
-    // ── private dispatch ──────────────────────────────────────────────────────
 
     private String generate(int length, Purpose purpose, Mode mode, String prefix) {
         return switch (mode) {
@@ -274,7 +217,6 @@ public class Dictionary {
         };
     }
 
-    // ── generators ────────────────────────────────────────────────────────────
 
     /** Pick {@code len} random chars from a {@code String} charset. */
     private String randomFrom(String charset, int len) {
