@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-@Stability(Level.VERY_HIGH)
+@Stability(war.jnt.annotate.Level.VERY_HIGH)
 public class LocalVariableRenameTransformer extends Mutator {
 
     private static final Logger logger = Logger.INSTANCE;
