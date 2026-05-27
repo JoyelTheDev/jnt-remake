@@ -21,7 +21,7 @@ import java.util.Random;
  * @stability HIGH — tested on Minecraft, Spring-based, and plain utility JARs.
  */
 @Stability(Level.HIGH)
-public class MBATransformer extends Mutator {
+public class MixedBooleanArithmeticTransformer extends Mutator {
 
     public enum MBALevel { LOW, MEDIUM, HIGH }
 
@@ -29,7 +29,7 @@ public class MBATransformer extends Mutator {
     private final Random rng = new Random();
 
     // Config keys: enabled (bool), depth (LOW|MEDIUM|HIGH), chance (0-100)
-    public MBATransformer (ObfuscatorContext base, ConfigurationSection config) {
+    public MixedBooleanArithmeticTransformer (ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
         MBALevel lvl;
         try {
@@ -43,7 +43,6 @@ public class MBATransformer extends Mutator {
     @Override
     public void run(ObfuscatorContext base) {
         int transformed = 0;
-
         for (JClassNode cn : base.getClasses()) {
             if (cn.isExempt()) continue;
             for (MethodNode mn : cn.methods) {
