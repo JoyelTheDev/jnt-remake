@@ -10,10 +10,10 @@ import war.metaphor.mutator.data.strings.poly2.decryptionMethod.args.AbstractDec
 import war.metaphor.mutator.data.strings.poly2.decryptionMethod.args.impl.StringArgument;
 import war.metaphor.mutator.data.strings.poly2.decryptionMethod.args.impl.integer.IntegerArgument;
 import war.metaphor.mutator.data.strings.poly2.init.Initializer;
-import war.metaphor.mutator.flow.BlockBreakMutator;
+import war.metaphor.mutator.flow.BlockBreakTransformer;
 import war.metaphor.mutator.flow.ControlFlowFlatteningMutator;
-import war.metaphor.mutator.loader.IntegrateLoaderMutator;
-import war.metaphor.mutator.rename.ClassRenameMutator;
+import war.metaphor.mutator.loader.IntegrateLoaderTransformer;
+import war.metaphor.mutator.rename.ClassRenameTransformer;
 import war.metaphor.tree.JClassNode;
 import war.metaphor.util.Pair;
 import war.metaphor.util.asm.BytecodeUtil;
@@ -29,10 +29,8 @@ import java.util.Set;
  * @see war.metaphor.mutator.data.strings.StringMutator
  * @author Jan
  */
-public final class NewStringTransformer extends Mutator
-{
+public final class NewStringTransformer extends Mutator {
     private boolean needsCryptoClass;
-
     public NewStringTransformer(final ObfuscatorContext base,
                             final ConfigurationSection config)
     {
@@ -45,22 +43,15 @@ public final class NewStringTransformer extends Mutator
 
         ConfigurationSection cfg = base.getConfig();
         String libPath = cfg.getString("jnt-path", "war/jnt");
-
         base.getClasses().forEach(jClassNode -> {
             if (jClassNode.isExempt()) return;
             if (jClassNode.isInterface()) return;
-
             boolean added = false;
-
             final DecryptionMethod method = new DecryptionMethod(jClassNode, libPath);
             final MethodNode methodNode = method.toMethodNode();
             for (final MethodNode node : jClassNode.methods)
             {
                 if (jClassNode.isExempt(node)) continue;
-
-                // Snapshot all LDC string nodes first — modifying InsnList
-                // while iterating it corrupts the iterator, causing an
-                // infinite loop or ConcurrentModificationException.
                 final ArrayList<LdcInsnNode> targets = new ArrayList<>();
                 for (final AbstractInsnNode instruction : node.instructions)
                 {
@@ -69,7 +60,6 @@ public final class NewStringTransformer extends Mutator
                         targets.add(ldc);
                     }
                 }
-
                 for (final LdcInsnNode ldc : targets)
                 {
                     final String str = (String) ldc.cst;
@@ -90,7 +80,6 @@ public final class NewStringTransformer extends Mutator
                 final MethodNode clinit = jClassNode.getStaticInit();
                 clinit.instructions.insertBefore(clinit.instructions.getFirst(), initializer.code);
             }
-
             if (method.needsCryptoClass)
             {
                 needsCryptoClass = true;
@@ -109,15 +98,13 @@ public final class NewStringTransformer extends Mutator
                 cn.version = V1_8;
                 base.addClass(cn);
                 cn.name = libPath + "/crypto/Crypto";
-                ClassRenameMutator renamer = new ClassRenameMutator(base, null);
+                ClassRenameMutator renamer = new ClassRenameTransformer(base, null);
                 renamer.map(base, Map.of("war/jnt/crypto/Crypto", libPath + "/crypto/Crypto"));
-
             } catch (Throwable t) {
                 throw new RuntimeException("Failed to load Crypto class", t);
             }
         }
-
-        try (InputStream resourceAsStream = IntegrateLoaderMutator.class.getResourceAsStream("/war/jnt/base64/Base64.class")) {
+        try (InputStream resourceAsStream = IntegrateLoaderTransformer.class.getResourceAsStream("/war/jnt/base64/Base64.class")) {
             if (resourceAsStream == null)
                 throw new RuntimeException("Failed to load Base64 class");
             byte[] bytes = resourceAsStream.readAllBytes();
@@ -125,9 +112,8 @@ public final class NewStringTransformer extends Mutator
             JClassNode cn = new JClassNode();
             cr.accept(cn, ClassReader.SKIP_FRAMES);
             cn.version = V1_8;
-
-            BlockBreakMutator blockBreakMutator = new BlockBreakMutator(base, null);
-            ControlFlowFlatteningMutator flatteningMutator = new ControlFlowFlatteningMutator(base, null);
+            BlockBreakTransformer blockBreakTransformer = new BlockBreakTransformer(base, null);
+            ControlFlowFlatteningTransformer flatteningTransformer = new ControlFlowFlatteningMutator(base, null);
             blockBreakMutator.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
             flatteningMutator.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
             base.addClass(cn);
@@ -146,7 +132,6 @@ public final class NewStringTransformer extends Mutator
                                      final String str)
     {
         final InsnList list = new InsnList();
-
         for (final Pair<AbstractDecryptionMethodArgument, Object> arg : method.storeString(str))
         {
             switch (arg.a)
@@ -156,12 +141,8 @@ public final class NewStringTransformer extends Mutator
                 default -> throw new IllegalStateException("Illegal argument while trying to build call");
             }
         }
-
         list.add(new MethodInsnNode(INVOKESTATIC, jClassNode.name, methodNode.name, methodNode.desc));
-        //list.add(new InsnNode(POP)); // yes
-
         list.add(method.returnType.getUnpackingCode());
-
         return list;
     }
 }

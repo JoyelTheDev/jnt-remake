@@ -39,7 +39,6 @@ public class BlockBreakTransformer extends Mutator {
                 for (Block block : blocks) {
                     if (size < 30000)
                         break;
-
                     List<List<AbstractInsnNode>> sameFrames = graph.groupSameFrames(block.getInstructions());
                     sameFrames.forEach(list -> list.removeIf(insn -> list.stream().anyMatch(otherInsn -> insn != otherInsn && Math.abs(insn.index - otherInsn.index) < 2)));
                     sameFrames.removeIf(list -> list.size() < 2 || list.size() >= 20);
@@ -49,7 +48,6 @@ public class BlockBreakTransformer extends Mutator {
                             method.instructions.insertBefore(node, label);
                         }
                     });
-
                     size = BytecodeUtil.leeway(method);
                 }
             }

@@ -10,7 +10,7 @@ import war.jnt.annotate.Stability;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
 import war.metaphor.mutator.data.strings.polymorphic.PolymorphicStringMethod;
-import war.metaphor.mutator.misc.LiftInitializersMutator;
+import war.metaphor.mutator.misc.LiftInitializersTransformer;
 import war.metaphor.tree.JClassNode;
 import war.metaphor.util.asm.BytecodeUtil;
 
@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Stability(Level.HIGH)
 public class StringTransformer extends Mutator {
-
     public StringTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
@@ -32,25 +31,19 @@ public class StringTransformer extends Mutator {
     @Override
     public void run(ObfuscatorContext base) {
         AtomicBoolean fucked = new AtomicBoolean(false);
-
         for (JClassNode node : base.getClasses()) {
             if (node.isExempt()) continue;
             if (node.isInterface()) continue;
-
             PolymorphicStringMethod decryptor = PolymorphicStringMethod.generate(node);
             AtomicBoolean modified = new AtomicBoolean();
-
             for (MethodNode method : node.methods) {
                 if (Modifier.isAbstract(method.access)) continue;
                 if (node.isExempt(method)) continue;
-
                 BytecodeUtil.translateConcatenation(method);
-
                 int size = BytecodeUtil.leeway(method);
                 for (AbstractInsnNode instruction : method.instructions) {
                     if (size < 30000)
                         break;
-
                     if (instruction instanceof LdcInsnNode ldc) {
                         if (ldc.cst instanceof String s) {
                             if (s.length() < 2) continue;
@@ -64,15 +57,13 @@ public class StringTransformer extends Mutator {
                     size = BytecodeUtil.leeway(method);
                 }
             }
-
             if (modified.get()) {
                 decryptor.addMethod();
                 fucked.set(true);
             }
         }
-
         if (fucked.get()) {
-            LiftInitializersMutator.crashReasons.add("Polymorphic String Mutation");
+            LiftInitializersTransformer.crashReasons.add("Polymorphic String Transformation");
         }
     }
 }

@@ -13,9 +13,9 @@ import war.jnt.dash.Logger;
 import war.jnt.dash.Origin;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
-import war.metaphor.mutator.flow.BlockBreakMutator;
-import war.metaphor.mutator.flow.ControlFlowFlatteningMutator;
-import war.metaphor.mutator.rename.ClassRenameMutator;
+import war.metaphor.mutator.flow.BlockBreakTransformer;
+import war.metaphor.mutator.flow.ControlFlowFlatteningTransformer;
+import war.metaphor.mutator.rename.ClassRenameTransformer;
 import war.metaphor.tree.JClassNode;
 
 import java.io.File;
@@ -44,10 +44,10 @@ public class IntegrateLoaderTransformer extends Mutator {
             JClassNode cn = new JClassNode();
             cr.accept(cn, ClassReader.SKIP_FRAMES);
             cn.version = V1_8;
-            BlockBreakMutator blockBreakMutator = new BlockBreakMutator(base, null);
-            ControlFlowFlatteningMutator flatteningMutator = new ControlFlowFlatteningMutator(base, null);
-            blockBreakMutator.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
-            flatteningMutator.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
+            BlockBreakTransformer blockBreakTransformer = new BlockBreakTransformer(base, null);
+            ControlFlowFlatteningTransformer flatteningTransformer = new ControlFlowFlatteningTransformer(base, null);
+            blockBreakTransformer.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
+            flatteningTransformer.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
             for (AbstractInsnNode instruction : cn.getStaticInit().instructions) {
                 if (instruction instanceof LdcInsnNode node) {
                     if (node.cst instanceof String str && str.equals("/war/jnt/")) {
@@ -55,7 +55,6 @@ public class IntegrateLoaderTransformer extends Mutator {
                     }
                 }
             }
-
             base.addClass(cn);
             cn.name = libPath + "/Loader";
             ClassRenameMutator renamer = new ClassRenameMutator(base, null);
@@ -63,14 +62,12 @@ public class IntegrateLoaderTransformer extends Mutator {
         } catch (Throwable t) {
             throw new RuntimeException("Failed to load Loader class", t);
         }
-
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
             if (classNode.isInterface()) continue;
             MethodNode guard = new MethodNode(ACC_PUBLIC | ACC_STATIC | ACC_NATIVE, "guard", "()V", null, null);
             classNode.methods.add(guard);
         }
-
         for (String targets : cfg.getStringList("targets")) {
             String build = String.format("%s/build/", base.getDir());
             String target = targets.toLowerCase(Locale.ROOT);
