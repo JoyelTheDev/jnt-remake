@@ -122,8 +122,8 @@ public class Metaphor {
                 .libraries(intake.getLibraries())
                 .resources(intake.getResources())
                 .manifest(intake.getManifest())
-                .mutator("cleanup", CleanupMutator.class)
-                .mutator("integrate", IntegrateLoaderMutator.class)
+                .mutator("cleanup", CleanupTransformer.class)
+                .mutator("integrate", IntegrateLoaderTransformer.class)
                 .build();
     }
 }

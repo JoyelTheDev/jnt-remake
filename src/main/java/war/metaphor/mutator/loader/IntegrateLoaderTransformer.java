@@ -36,7 +36,7 @@ public class IntegrateLoaderTransformer extends Mutator {
     public void run(ObfuscatorContext base) {
         ConfigurationSection cfg = base.getConfig();
         String libPath = cfg.getString("jnt-path", "war/jnt");
-        try (InputStream resourceAsStream = IntegrateLoaderMutator.class.getResourceAsStream("/war/jnt/Loader.class")) {
+        try (InputStream resourceAsStream = IntegrateLoaderTransformer.class.getResourceAsStream("/war/jnt/Loader.class")) {
             if (resourceAsStream == null)
                 throw new RuntimeException("Failed to load Loader class");
             byte[] bytes = resourceAsStream.readAllBytes();
@@ -57,7 +57,7 @@ public class IntegrateLoaderTransformer extends Mutator {
             }
             base.addClass(cn);
             cn.name = libPath + "/Loader";
-            ClassRenameMutator renamer = new ClassRenameMutator(base, null);
+            ClassRenameTransformer renamer = new ClassRenameTransformer(base, null);
             renamer.map(base, Map.of("war/jnt/Loader", libPath + "/Loader"));
         } catch (Throwable t) {
             throw new RuntimeException("Failed to load Loader class", t);

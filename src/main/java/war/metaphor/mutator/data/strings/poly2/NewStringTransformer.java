@@ -87,7 +87,7 @@ public final class NewStringTransformer extends Mutator {
 
         if (needsCryptoClass)
         {
-            try (InputStream resourceAsStream = IntegrateLoaderMutator.class.getResourceAsStream("/war/jnt/crypto/Crypto.class")) {
+            try (InputStream resourceAsStream = IntegrateLoaderTransformer.class.getResourceAsStream("/war/jnt/crypto/Crypto.class")) {
                 if (resourceAsStream == null)
                     throw new RuntimeException("Failed to load Crypto class");
                 byte[] bytes = resourceAsStream.readAllBytes();
@@ -97,7 +97,7 @@ public final class NewStringTransformer extends Mutator {
                 cn.version = V1_8;
                 base.addClass(cn);
                 cn.name = libPath + "/crypto/Crypto";
-                ClassRenameMutator renamer = new ClassRenameTransformer(base, null);
+                ClassRenameTransformer renamer = new ClassRenameTransformer(base, null);
                 renamer.map(base, Map.of("war/jnt/crypto/Crypto", libPath + "/crypto/Crypto"));
             } catch (Throwable t) {
                 throw new RuntimeException("Failed to load Crypto class", t);
@@ -112,12 +112,12 @@ public final class NewStringTransformer extends Mutator {
             cr.accept(cn, ClassReader.SKIP_FRAMES);
             cn.version = V1_8;
             BlockBreakTransformer blockBreakTransformer = new BlockBreakTransformer(base, null);
-            ControlFlowFlatteningTransformer flatteningTransformer = new ControlFlowFlatteningMutator(base, null);
-            blockBreakMutator.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
-            flatteningMutator.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
+            ControlFlowFlatteningTransformer flatteningTransformer = new ControlFlowFlatteningTransformer(base, null);
+            blockBreakTransformer.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
+            flatteningTransformer.run(ObfuscatorContext.builder().classes(Set.of(cn)).build());
             base.addClass(cn);
             cn.name = libPath + "/base64/Base64";
-            ClassRenameMutator renamer = new ClassRenameMutator(base, null);
+            ClassRenameTransformer renamer = new ClassRenameTransformer(base, null);
             renamer.map(base, Map.of("war/jnt/base64/Base64", libPath + "/base64/Base64"));
 
         } catch (Throwable t) {
