@@ -84,7 +84,6 @@ public class JNTC extends JFrame {
                                                           boolean isSelected, boolean cellHasFocus) {
                 JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 String errorText = value.toString();
-
                 label.setText("<html><div style='padding:4px;'>" + errorText + "</div></html>");
                 label.setFont(new Font("Inter", Font.PLAIN, 13));
                 label.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
@@ -93,7 +92,6 @@ public class JNTC extends JFrame {
                 label.setHorizontalTextPosition(SwingConstants.RIGHT);
                 label.setVerticalTextPosition(SwingConstants.CENTER);
                 label.setIconTextGap(10);
-
                 if (isSelected) {
                     label.setBackground(new Color(50, 50, 50));
                     label.setForeground(Color.WHITE);
@@ -105,19 +103,15 @@ public class JNTC extends JFrame {
                 return label;
             }
         });
-
         JScrollPane errorScroll = new JScrollPane(errorList);
-
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Preview", codeScroll);
         tabs.addTab("Metadata", metaScroll);
         tabs.addTab("Errors", errorScroll);
-
         JToolBar toolBar = new JToolBar();
         JButton exportBtn = new JButton("Export Entry");
         exportBtn.addActionListener(e -> exportCurrentEntry());
         toolBar.add(exportBtn);
-
         wrapToggle.addActionListener(e -> {
             boolean wrap = wrapToggle.isSelected();
             codeArea.setLineWrap(wrap);
@@ -126,11 +120,9 @@ public class JNTC extends JFrame {
         wrapToggle.setSelected(true);
         toolBar.add(wrapToggle);
         add(toolBar, BorderLayout.NORTH);
-
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeScroll, tabs);
         splitPane.setDividerLocation(300);
         getContentPane().add(splitPane, BorderLayout.CENTER);
-
         new DropTarget(this, DnDConstants.ACTION_COPY, new java.awt.dnd.DropTargetAdapter() {
             @Override
             public void drop(DropTargetDropEvent dtde) {
@@ -176,7 +168,6 @@ public class JNTC extends JFrame {
     private void loadZip(File file) {
         try {
             if (currentZip != null) currentZip.close();
-
             File toOpen = file;
             byte[] fileBytes = java.nio.file.Files.readAllBytes(file.toPath());
             if (!(fileBytes[0] == 'P' && fileBytes[1] == 'K')) {
@@ -197,7 +188,6 @@ public class JNTC extends JFrame {
             });
             tree.setModel(new DefaultTreeModel(root));
             tree.expandRow(0);
-            //setTitle("jntc - " + file.getAbsolutePath());
             codeArea.setText("");
             loadMetadataAndErrors();
         } catch (IOException e) {

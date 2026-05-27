@@ -115,7 +115,6 @@ public class StringPoolTransformer extends Mutator {
         il.add(new InsnNode(AALOAD));
         return il;
     }
-
     private static AbstractInsnNode pushInt(int value) {
         if (value >= -1 && value <= 5)
             return new InsnNode(ICONST_0 + value);
@@ -125,7 +124,6 @@ public class StringPoolTransformer extends Mutator {
             return new IntInsnNode(SIPUSH, value);
         return new LdcInsnNode(value);
     }
-
     private static AbstractInsnNode firstReal(MethodNode mn) {
         for (AbstractInsnNode ain : mn.instructions)
             if (ain.getOpcode() >= 0) return ain;
