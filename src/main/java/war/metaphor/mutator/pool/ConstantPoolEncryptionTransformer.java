@@ -13,64 +13,7 @@ import war.metaphor.util.asm.BytecodeUtil;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
-/**
- * ConstantPoolEncryptionTransformer
- *
- * Encrypts all LDC constants (strings, ints, longs, floats, doubles) into a
- * per-class encrypted pool stored in a synthetic static field. Each constant
- * is encoded at the byte[] level using a per-class XOR + rotation cipher, then
- * decrypted at runtime by a synthetic static method injected into the class.
- *
- * The cipher applies three passes over each constant's byte representation:
- *   1. XOR every byte with a per-class key derived from the class name hash.
- *   2. Rotate each byte left by a per-constant salt (index-based).
- *   3. XOR again with a secondary per-class key (complement of the first).
- *
- * Runtime shape (per class):
- * <pre>
- *   private static final Object[] JNT$pool;   // decrypted constants, lazy-init
- *   private static final byte[]   JNT$data;   // encrypted constant bytes
- *
- *   static {
- *       JNT$data = new byte[]{ ... }; // encrypted payload, baked into clinit
- *       JNT$pool = new Object[N];
- *       // slot 0..N-1 left null — filled on first access
- *   }
- *
- *   private static Object JNT$decrypt(int slot) {
- *       if (JNT$pool[slot] != null) return JNT$pool[slot];
- *       // read length-prefixed entry from JNT$data
- *       // XOR + rotate back
- *       // parse type tag, reconstruct Integer / Long / Float / Double / String
- *       // cache in JNT$pool[slot]
- *       return JNT$pool[slot];
- *   }
- * </pre>
- *
- * Each use site becomes:
- * <pre>
- *   // before: LDC "hello"
- *   // after:
- *   INVOKESTATIC owner JNT$decrypt (I)Ljava/lang/Object;
- *   CHECKCAST java/lang/String          (or Number subclass)
- *   INVOKEVIRTUAL java/lang/Integer intValue ()I   (for int/float/etc.)
- * </pre>
- *
- * Configuration (config.yml):
- * <pre>
- *   const-pool:
- *     enabled: true
- *     chance: 100          # 0-100 — % of eligible LDC sites to transform
- *     min-str-length: 1    # skip strings shorter than this
- *     encrypt-numbers: true  # also encrypt int/long/float/double LDC constants
- * </pre>
- *
- * Registration in Metaphor.java:
- *   .mutator("const-pool", ConstantPoolEncryptionTransformer.class)
- *
- * Recommended order: after renaming, before flow obfuscation. Run BEFORE
- * string.pool/string.stack since those also consume LDC strings.
- */
+
 @Stability(Level.HIGH)
 public class ConstantPoolEncryptionTransformer extends Mutator {
 
@@ -180,9 +123,9 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         int[] slotOffsets = buildSlotOffsets(slotValues);
 
         // ── 6. Inject synthetic fields ───────────────────────────────────────
-        String poolField = uniqueName(cn, "JNT$pool");
-        String dataField = uniqueName(cn, "JNT$data");
-        String decryptMn = uniqueName(cn, "JNT$decrypt");
+        String poolField = uniqueName(cn, "ARK$pool");
+        String dataField = uniqueName(cn, "ARK$data");
+        String decryptMn = uniqueName(cn, "ARK$decrypt");
 
         cn.fields.add(new FieldNode(
                 ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC,
@@ -344,49 +287,6 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         return il;
     }
 
-    /**
-     * Builds the synthetic decrypt method. The method is intentionally kept as
-     * a sequence of plain bytecode instructions so that it looks like hand-written
-     * class internals rather than a clearly pattern-matched generated stub.
-     *
-     * Pseudocode:
-     * <pre>
-     * private static Object JNT$decrypt(int slot) {
-     *     // read cached value
-     *     Object cached = JNT$pool[slot];
-     *     if (cached != null) return cached;
-     *
-     *     // locate entry in byte stream using precomputed offset table
-     *     int offset = OFFSETS[slot];         // baked as TABLESWITCH
-     *     byte[] data = JNT$data;
-     *     byte tag    = data[offset];
-     *     int   len   = ((data[offset+1]&0xFF)<<24)|((data[offset+2]&0xFF)<<16)
-     *                 | ((data[offset+3]&0xFF)<< 8)| (data[offset+4]&0xFF);
-     *     byte[] raw  = new byte[len];
-     *     System.arraycopy(data, offset+5, raw, 0, len);
-     *
-     *     // decrypt: reverse of encrypt()
-     *     for (int i = 0; i < len; i++) {
-     *         int b = (raw[i] & 0xFF) ^ keyB;
-     *         int rot = i & 7;
-     *         b = ((b >>> rot) | (b << (8 - rot))) & 0xFF;
-     *         b ^= keyA;
-     *         raw[i] = (byte) b;
-     *     }
-     *
-     *     // reconstruct typed value
-     *     Object result;
-     *     if (tag == TAG_STRING) result = new String(raw, UTF_8);
-     *     else if (tag == TAG_INT) result = (raw[0]<<24)|...;
-     *     else if (tag == TAG_LONG) ...;
-     *     else if (tag == TAG_FLOAT) Float.intBitsToFloat(...);
-     *     else result = Double.longBitsToDouble(...);
-     *
-     *     JNT$pool[slot] = result;
-     *     return result;
-     * }
-     * </pre>
-     */
     private MethodNode buildDecryptMethod(String owner, String methodName,
                                            String poolField, String dataField,
                                            int[] slotOffsets,
@@ -512,14 +412,7 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
                 "java/lang/System", "arraycopy",
                 "(Ljava/lang/Object;ILjava/lang/Object;II)V", false));
 
-        // ── Decrypt loop ───────────────────────────────────────────────────────
-        // for (int i = 0; i < len; i++) {
-        //     int b = (raw[i] & 0xFF) ^ keyB;
-        //     int rot = i & 7;
-        //     b = ((b >>> rot) | (b << (8 - rot))) & 0xFF;   // rotate right
-        //     b ^= keyA;
-        //     raw[i] = (byte) b;
-        // }
+    
         il.add(new InsnNode(ICONST_0));
         il.add(new VarInsnNode(ISTORE, 6));                   // i = 0
 
@@ -605,74 +498,56 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         il.add(new InsnNode(ICONST_0)); il.add(new InsnNode(BALOAD));
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND));
         il.add(pushInt(24));   il.add(new InsnNode(ISHL));
-
         il.add(new VarInsnNode(ALOAD, 5));
         il.add(new InsnNode(ICONST_1)); il.add(new InsnNode(BALOAD));
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND));
         il.add(pushInt(16)); il.add(new InsnNode(ISHL)); il.add(new InsnNode(IOR));
-
         il.add(new VarInsnNode(ALOAD, 5));
         il.add(new InsnNode(ICONST_2)); il.add(new InsnNode(BALOAD));
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND));
         il.add(pushInt(8)); il.add(new InsnNode(ISHL)); il.add(new InsnNode(IOR));
-
         il.add(new VarInsnNode(ALOAD, 5));
         il.add(new InsnNode(ICONST_3)); il.add(new InsnNode(BALOAD));
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND)); il.add(new InsnNode(IOR));
-
         il.add(new MethodInsnNode(INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;", false));
         il.add(new VarInsnNode(ASTORE, 8));
         il.add(new JumpInsnNode(GOTO, cacheAndRet));
-
-        // if (tag == TAG_LONG)
         il.add(isLong);
         il.add(new VarInsnNode(ILOAD, 3));
         il.add(pushInt(TAG_LONG));
         il.add(new JumpInsnNode(IF_ICMPNE, isFloat));
-        // Long.valueOf( 8-byte reassembly )
         il.add(buildLongFromBytes(5));
         il.add(new MethodInsnNode(INVOKESTATIC, "java/lang/Long", "valueOf", "(J)Ljava/lang/Long;", false));
         il.add(new VarInsnNode(ASTORE, 8));
         il.add(new JumpInsnNode(GOTO, cacheAndRet));
-
-        // if (tag == TAG_FLOAT)
         il.add(isFloat);
         il.add(new VarInsnNode(ILOAD, 3));
         il.add(pushInt(TAG_FLOAT));
         il.add(new JumpInsnNode(IF_ICMPNE, isDouble));
-        // Float.valueOf(Float.intBitsToFloat( 4-byte int ))
         il.add(new VarInsnNode(ALOAD, 5));
         il.add(new InsnNode(ICONST_0)); il.add(new InsnNode(BALOAD));
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND));
         il.add(pushInt(24)); il.add(new InsnNode(ISHL));
-
         il.add(new VarInsnNode(ALOAD, 5));
         il.add(new InsnNode(ICONST_1)); il.add(new InsnNode(BALOAD));
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND));
         il.add(pushInt(16)); il.add(new InsnNode(ISHL)); il.add(new InsnNode(IOR));
-
         il.add(new VarInsnNode(ALOAD, 5));
         il.add(new InsnNode(ICONST_2)); il.add(new InsnNode(BALOAD));
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND));
         il.add(pushInt(8)); il.add(new InsnNode(ISHL)); il.add(new InsnNode(IOR));
-
         il.add(new VarInsnNode(ALOAD, 5));
         il.add(new InsnNode(ICONST_3)); il.add(new InsnNode(BALOAD));
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND)); il.add(new InsnNode(IOR));
-
         il.add(new MethodInsnNode(INVOKESTATIC, "java/lang/Float", "intBitsToFloat", "(I)F", false));
         il.add(new MethodInsnNode(INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;", false));
         il.add(new VarInsnNode(ASTORE, 8));
         il.add(new JumpInsnNode(GOTO, cacheAndRet));
-
-        // default → TAG_DOUBLE
         il.add(isDouble);
         il.add(buildLongFromBytes(5));
         il.add(new MethodInsnNode(INVOKESTATIC, "java/lang/Double", "longBitsToDouble", "(J)D", false));
         il.add(new MethodInsnNode(INVOKESTATIC, "java/lang/Double", "valueOf", "(D)Ljava/lang/Double;", false));
         il.add(new VarInsnNode(ASTORE, 8));
-
-        // ── Cache and return ──────────────────────────────────────────────────
         il.add(cacheAndRet);
         il.add(new FieldInsnNode(GETSTATIC, owner, poolField, POOL_FIELD_DESC));
         il.add(new VarInsnNode(ILOAD, 0));
@@ -688,10 +563,6 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         return mn;
     }
 
-    /**
-     * Builds an InsnList that reconstructs a long from the byte[] in local `rawVar`.
-     * Assumes bytes 0..7 are big-endian.
-     */
     private InsnList buildLongFromBytes(int rawVar) {
         InsnList il = new InsnList();
         // ((long)(raw[0]&0xFF)<<56) | ... | (raw[7]&0xFF)
@@ -710,14 +581,7 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         }
         return il;
     }
-
-    /**
-     * Builds the replacement for a single LDC use site:
-     *
-     *   BIPUSH/LDC  slot
-     *   INVOKESTATIC owner JNT$decrypt (I)Ljava/lang/Object;
-     *   CHECKCAST / unboxing as needed for the original type
-     */
+    
     private InsnList buildUseSite(String owner, String decryptMethod,
                                    Object value, int slot) {
         InsnList il = new InsnList();
