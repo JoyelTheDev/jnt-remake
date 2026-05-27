@@ -19,7 +19,7 @@ import war.metaphor.mutator.optimization.*;
 import war.metaphor.mutator.parameter.*;
 import war.metaphor.mutator.ref.ReferenceTransformer;
 import war.metaphor.mutator.runtime.*;
-import war.metaphor.mutator.splash.SplashScreenMutator;
+import war.metaphor.mutator.splash.SplashScreenTransformer;
 import war.metaphor.mutator.virtualization.*;
 
 import java.nio.file.Path;
