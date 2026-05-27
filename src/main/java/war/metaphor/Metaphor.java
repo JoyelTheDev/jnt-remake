@@ -14,6 +14,7 @@ import war.metaphor.mutator.integrity.mainCallCheck.MainCallCheckMutator;
 import war.metaphor.mutator.integrity.method.MethodIntegrityMutator;
 import war.metaphor.mutator.loader.*;
 import war.metaphor.mutator.misc.*;
+import war.metaphor.mutator.pool.*;
 import war.metaphor.mutator.split.*;
 import war.metaphor.mutator.optimization.*;
 import war.metaphor.mutator.parameter.*;
@@ -70,6 +71,7 @@ public class Metaphor {
                 .mutator("string.light", LightStringTransformer.class)
                 .mutator("string.split", StringSplitTransformer.class)
                 .mutator("string.stack", StringStackTransformer.class)
+                .mutator("constpool", ConstantPoolEncryptionTransformer.class)
                 .mutator("string.pool", StringPoolTransformer.class)
                 .mutator("ahegao", AhegaoTransformer.class)
             
