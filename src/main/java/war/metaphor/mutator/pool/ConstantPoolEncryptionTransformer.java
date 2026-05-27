@@ -1,4 +1,4 @@
-package war.metaphor.mutator.pool;
+package war.metaphor.mutator.data;
 
 import org.objectweb.asm.tree.*;
 import war.configuration.ConfigurationSection;
@@ -13,7 +13,64 @@ import war.metaphor.util.asm.BytecodeUtil;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
-
+/**
+ * ConstantPoolEncryptionTransformer
+ *
+ * Encrypts all LDC constants (strings, ints, longs, floats, doubles) into a
+ * per-class encrypted pool stored in a synthetic static field. Each constant
+ * is encoded at the byte[] level using a per-class XOR + rotation cipher, then
+ * decrypted at runtime by a synthetic static method injected into the class.
+ *
+ * The cipher applies three passes over each constant's byte representation:
+ *   1. XOR every byte with a per-class key derived from the class name hash.
+ *   2. Rotate each byte left by a per-constant salt (index-based).
+ *   3. XOR again with a secondary per-class key (complement of the first).
+ *
+ * Runtime shape (per class):
+ * <pre>
+ *   private static final Object[] JNT$pool;   // decrypted constants, lazy-init
+ *   private static final byte[]   JNT$data;   // encrypted constant bytes
+ *
+ *   static {
+ *       JNT$data = new byte[]{ ... }; // encrypted payload, baked into clinit
+ *       JNT$pool = new Object[N];
+ *       // slot 0..N-1 left null — filled on first access
+ *   }
+ *
+ *   private static Object JNT$decrypt(int slot) {
+ *       if (JNT$pool[slot] != null) return JNT$pool[slot];
+ *       // read length-prefixed entry from JNT$data
+ *       // XOR + rotate back
+ *       // parse type tag, reconstruct Integer / Long / Float / Double / String
+ *       // cache in JNT$pool[slot]
+ *       return JNT$pool[slot];
+ *   }
+ * </pre>
+ *
+ * Each use site becomes:
+ * <pre>
+ *   // before: LDC "hello"
+ *   // after:
+ *   INVOKESTATIC owner JNT$decrypt (I)Ljava/lang/Object;
+ *   CHECKCAST java/lang/String          (or Number subclass)
+ *   INVOKEVIRTUAL java/lang/Integer intValue ()I   (for int/float/etc.)
+ * </pre>
+ *
+ * Configuration (config.yml):
+ * <pre>
+ *   const-pool:
+ *     enabled: true
+ *     chance: 100          # 0-100 — % of eligible LDC sites to transform
+ *     min-str-length: 1    # skip strings shorter than this
+ *     encrypt-numbers: true  # also encrypt int/long/float/double LDC constants
+ * </pre>
+ *
+ * Registration in Metaphor.java:
+ *   .mutator("const-pool", ConstantPoolEncryptionTransformer.class)
+ *
+ * Recommended order: after renaming, before flow obfuscation. Run BEFORE
+ * string.pool/string.stack since those also consume LDC strings.
+ */
 @Stability(Level.HIGH)
 public class ConstantPoolEncryptionTransformer extends Mutator {
 
@@ -113,8 +170,8 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         byte keyA     = (byte)  (nameHash        & 0xFF);
         byte keyB     = (byte) ((nameHash >>> 8) & 0xFF);
         // keyB is the complement rotate so decryption can't trivially mirror A
-        if (keyA == 0) keyA = 0x5A;
-        if (keyB == 0) keyB = 0xA5;
+        if (keyA == 0) keyA = (byte) 0x5A;
+        if (keyB == 0) keyB = (byte) 0xA5;
 
         // ── 4. Build encrypted byte[] payload ────────────────────────────────
         byte[] payload = buildPayload(slotValues, keyA, keyB);
@@ -123,9 +180,9 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         int[] slotOffsets = buildSlotOffsets(slotValues);
 
         // ── 6. Inject synthetic fields ───────────────────────────────────────
-        String poolField = uniqueName(cn, "ARK$pool");
-        String dataField = uniqueName(cn, "ARK$data");
-        String decryptMn = uniqueName(cn, "ARK$decrypt");
+        String poolField = uniqueName(cn, "JNT$pool");
+        String dataField = uniqueName(cn, "JNT$data");
+        String decryptMn = uniqueName(cn, "JNT$decrypt");
 
         cn.fields.add(new FieldNode(
                 ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC,
