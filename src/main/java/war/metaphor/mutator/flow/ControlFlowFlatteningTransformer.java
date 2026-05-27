@@ -35,51 +35,37 @@ public class ControlFlowFlatteningTransformer extends Mutator {
             for (MethodNode method : classNode.methods) {
                 if (Modifier.isAbstract(method.access))continue;
                 if (classNode.isExempt(method)) continue;
-
                 int size = BytecodeUtil.leeway(method);
-
                 if (size < 30000)
                     continue;
-
                 ControlFlowGraph graph = new ControlFlowGraph(classNode, method);
-
                 if (!graph.compute())
                     continue;
-
                 flatten(method, graph);
             }
         }
     }
 
     private void flatten(MethodNode method, ControlFlowGraph graph) {
-
         List<List<Block>> grouped = graph.groupSameBlocks();
-
         grouped.forEach(blocks -> blocks.removeIf(Block::isCarrying));
         grouped.forEach(blocks -> blocks.removeIf(block -> block == graph.getStartBlock()));
         grouped.removeIf(blocks -> blocks.size() <= 1);
-
         if (grouped.isEmpty()) return;
-
         int var = method.maxLocals++;
         InsnList init = new InsnList();
         init.add(BytecodeUtil.makeInteger(RANDOM.nextInt()));
         init.add(new VarInsnNode(ISTORE, var));
         method.instructions.insert(init);
-
         Collections.shuffle(grouped);
-
         for (List<Block> group : grouped) {
-
             LookupSwitchInsnNode lookupSwitch;
             Map<Block, LabelNode> labels = new LinkedHashMap<>();
             Map<Block, Integer>   keys   = new LinkedHashMap<>();
-
             for (Block block : group) {
                 keys.put(block, nextIntUnique(keys.values()));
                 labels.put(block, new LabelNode());
             }
-
             LabelNode start = new LabelNode();
             int[]       keyArr   = new int[group.size()];
             LabelNode[] labelArr = new LabelNode[group.size()];
@@ -88,36 +74,25 @@ public class ControlFlowFlatteningTransformer extends Mutator {
                 keyArr[_i]   = keys.get(_b);
                 labelArr[_i] = labels.get(_b);
             }
-
             lookupSwitch = new LookupSwitchInsnNode(labelArr[0], keyArr, labelArr);
-
             BytecodeUtil.fixLookupSwitch(lookupSwitch);
-
             InsnList list = new InsnList();
             list.add(start);
             list.add(new VarInsnNode(ILOAD, var));
             list.add(lookupSwitch);
-
             for (Block block : group) {
-
                 InsnList blockList = new InsnList();
                 InsnList sub = new InsnList();
                 sub.add(BytecodeUtil.generateInteger(keys.get(block)));
-//                }
-
                 sub.add(new VarInsnNode(ISTORE, var));
                 sub.add(new JumpInsnNode(GOTO, start));
-
                 LabelNode blockLabel = labels.get(block);
                 blockList.add(blockLabel);
-
                 for (AbstractInsnNode instruction : block.getInstructions()) {
                     blockList.add(graph.clone(instruction));
                     method.instructions.remove(instruction);
                 }
-
                 method.instructions.insert(block.getStart(), sub);
-
                 if (block.inTrap()) {
                     method.instructions.insertBefore(block.getLowestTrap().end, blockList);
                 } else {
