@@ -11,7 +11,7 @@ import war.metaphor.mutator.data.strings.poly2.decryptionMethod.args.impl.String
 import war.metaphor.mutator.data.strings.poly2.decryptionMethod.args.impl.integer.IntegerArgument;
 import war.metaphor.mutator.data.strings.poly2.init.Initializer;
 import war.metaphor.mutator.flow.BlockBreakTransformer;
-import war.metaphor.mutator.flow.ControlFlowFlatteningMutator;
+import war.metaphor.mutator.flow.ControlFlowFlatteningTransformer;
 import war.metaphor.mutator.loader.IntegrateLoaderTransformer;
 import war.metaphor.mutator.rename.ClassRenameTransformer;
 import war.metaphor.tree.JClassNode;
@@ -75,7 +75,6 @@ public final class NewStringTransformer extends Mutator {
                 jClassNode.methods.add(methodNode);
                 jClassNode.fields.add(method.initField);
                 jClassNode.fields.add(method.cacheField);
-
                 final Initializer initializer = method.makeInitializer();
                 final MethodNode clinit = jClassNode.getStaticInit();
                 clinit.instructions.insertBefore(clinit.instructions.getFirst(), initializer.code);
