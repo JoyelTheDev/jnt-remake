@@ -36,19 +36,13 @@ public class ClassRenameTransformer extends MappingMutator {
     @Override
     public void run(ObfuscatorContext base) {
         Map<String, String> mapping = new HashMap<>();
-
         List<JClassNode> classesList = new ArrayList<>(base.getClasses());
         Collections.shuffle(classesList);
-
         for (JClassNode classNode : classesList) {
             if (classNode.isExempt()) continue;
-
             String newName = Dictionary.gen(length, Purpose.CLASS, mode, prefix);
-
             String oldName = classNode.name;
-
             mapping.put(oldName, newName);
-
             base.getRepository().add(new Mapping(
                     new ClassIdentity(oldName),
                     new ClassIdentity(newName)

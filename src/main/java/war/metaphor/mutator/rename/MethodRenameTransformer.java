@@ -36,13 +36,10 @@ public class MethodRenameTransformer extends MappingMutator {
     @Override
     public void run(ObfuscatorContext base) {
         Map<String, String> mapping = new HashMap<>();
-
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
-
             Set<JClassNode> classTree = Hierarchy.INSTANCE.getClassHierarchy(classNode);
             classTree.add(classNode);
-
             for (MethodNode method : classNode.methods) {
                 if (classNode.isExempt(method)
                         || (method.name.equals("main") && method.desc.equals("([Ljava/lang/String;)V"))
@@ -57,11 +54,8 @@ public class MethodRenameTransformer extends MappingMutator {
 
                 ClassMethod self = ClassMethod.of(classNode, method);
                 Set<ClassMethod> methodTree = Hierarchy.INSTANCE.getMethodHierarchy(self);
-
                 if (!canRenameMethod(methodTree)) continue;
-
                 String newName = null;
-
                 for (JClassNode node : classTree) {
                     String id = node.name + "." + method.name + method.desc;
                     if (mapping.containsKey(id)) {

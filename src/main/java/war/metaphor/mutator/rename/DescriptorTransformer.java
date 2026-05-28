@@ -29,13 +29,10 @@ public class DescriptorTransformer extends MappingMutator {
     public void run(ObfuscatorContext base) {
         // TODO, proper renaming and stuff, also impl paramter obf
         Map<String, Type> mapping = new HashMap<>();
-
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
-
             Set<JClassNode> classTree = Hierarchy.INSTANCE.getClassHierarchy(classNode);
             classTree.add(classNode);
-
             for (FieldNode field : classNode.fields) {
                 if (field.value != null) continue;
                 if (field.desc.length() == 1) continue;
