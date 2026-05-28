@@ -56,6 +56,7 @@ public class Metaphor {
                 .mutator("renamer.method", MethodRenameTransformer.class)
                 .mutator("renamer.field", FieldRenameTransformer.class)
                 .mutator("renamer.desc", DescriptorTransformer.class)
+                .mutator("renamer.localvariable", LocalVariableRenameTransformer.class)
 
                 .mutator("main-call-check", MainCallCheckMutator.class)
                 .mutator("call-graph", CallGraphIntegrityMutator.class)
