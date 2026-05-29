@@ -6,6 +6,8 @@ import org.objectweb.asm.tree.MethodNode;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
@@ -36,6 +38,8 @@ public class LocalVariableRenameTransformer extends Mutator {
     private final boolean         skipThis;
     private final boolean         skipParams;
 
+    private final Logger logger = Logger.INSTANCE;
+
     public LocalVariableRenameTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
         this.mode       = Dictionary.Mode.of(config == null ? null : config.getString("dictionary", "random"));
@@ -47,6 +51,7 @@ public class LocalVariableRenameTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext base) {
+        int renamed = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
             for (MethodNode method : classNode.methods) {
@@ -55,20 +60,25 @@ public class LocalVariableRenameTransformer extends Mutator {
                 if (Modifier.isNative(method.access))       continue;
                 if (method.localVariables == null
                         || method.localVariables.isEmpty()) continue;
-                renameLocals(method);
+                renamed += renameLocals(method);
             }
         }
+        logger.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "(" + renamed + ") Renamed");
     }
 
-    private void renameLocals(MethodNode method) {
-        boolean isStatic  = Modifier.isStatic(method.access);
-        int firstParamSlot = isStatic ? 0 : 1; // slot 0 = 'this' in instance methods
+    // Returns the number of LVT entries renamed in this method.
+    private int renameLocals(MethodNode method) {
+        boolean isStatic   = Modifier.isStatic(method.access);
+        int firstParamSlot = isStatic ? 0 : 1;
         int firstLocalSlot = firstParamSlot + paramSlotCount(method);
         Map<Integer, String> slotToName = new HashMap<>();
+        int count = 0;
         for (LocalVariableNode lv : method.localVariables) {
             int idx = lv.index;
+
             if (!isStatic && idx == 0) {
-                if (skipThis) continue; // leave "this" alone by default
+                if (skipThis) continue;
             }
 
             if (idx >= firstParamSlot && idx < firstLocalSlot) {
@@ -78,13 +88,16 @@ public class LocalVariableRenameTransformer extends Mutator {
             String newName = slotToName.computeIfAbsent(idx,
                     __ -> Dictionary.gen(length, Purpose.GENERIC, mode, prefix));
             lv.name = newName;
+            count++;
         }
+
+        return count;
     }
 
     private static int paramSlotCount(MethodNode method) {
         int slots = 0;
         for (Type argType : Type.getArgumentTypes(method.desc)) {
-            slots += argType.getSize(); // 2 for long/double, 1 for everything else
+            slots += argType.getSize();
         }
         return slots;
     }
