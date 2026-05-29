@@ -51,13 +51,10 @@ public class NumberTransformer extends Mutator {
             for (MethodNode mn : eligible) {
                 if (cn.isExempt(mn)) continue;
                 if (Modifier.isAbstract(mn.access)) continue;
-
                 for (AbstractInsnNode insn : mn.instructions.toArray()) {
                     int opcode = insn.getOpcode();
                     if (opcode < ICONST_M1 || opcode > LDC) continue;
-
                     AbstractInsnNode newInsn;
-
                     if (opcode <= ICONST_5) {
                         newInsn = generateInsn(cn, deobfInsns, opcode - ICONST_0);
                     } else {
@@ -91,7 +88,7 @@ public class NumberTransformer extends Mutator {
             }
         }
 
-        Logger.INSTANCE.logln(Level.INFO, Origin.METAPHOR, "NumberTransformer: mutated {} numbers", total);
+        Logger.INSTANCE.logln(Level.INFO, Origin.METAPHOR, "NumberTransformer: Transformed " + total + " numbers");
     }
 
     private AbstractInsnNode generateInsn(JClassNode cn, InsnList deobfInsns, Number value) {
