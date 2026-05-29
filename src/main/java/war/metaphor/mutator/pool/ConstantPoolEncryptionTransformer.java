@@ -42,18 +42,14 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         this.encryptNumbers = config == null || config.getBoolean("encrypt-numbers", true);
     }
 
-    // ── Entry point ──────────────────────────────────────────────────────────
-
     @Override
     public void run(ObfuscatorContext base) {
         int totalSlots   = 0;
         int totalClasses = 0;
-
         for (JClassNode cn : base.getClasses()) {
             if (cn.isExempt())    continue;
             if (cn.isInterface()) continue;
             if (Modifier.isInterface(cn.access)) continue;
-
             int slotsMade = processClass(cn);
             if (slotsMade > 0) {
                 totalSlots += slotsMade;
@@ -64,19 +60,9 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         war.jnt.dash.Logger.INSTANCE.logln(
                 war.jnt.dash.Level.INFO,
                 war.jnt.dash.Origin.METAPHOR,
-                "ConstantPoolEncryption: encrypted {} constants across {} classes",
-                totalSlots, totalClasses);
+                "ConstantPoolEncryption: encrypted " + totalSlots + " constants across " + totalClasses + " classes");
     }
 
-    // ── Per-class processing ─────────────────────────────────────────────────
-
-    /**
-     * Collects all eligible LDC nodes, assigns them pool slots, builds the
-     * encrypted byte[] payload, injects the synthetic fields + clinit init +
-     * decrypt method, and rewrites every use site.
-     *
-     * @return number of pool slots created (0 = class was untouched)
-     */
     private int processClass(JClassNode cn) {
         // ── 1. Collect candidates ────────────────────────────────────────────
         List<Candidate> candidates = new ArrayList<>();
@@ -162,22 +148,10 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         return poolSize;
     }
 
-    // ── Payload encoding ─────────────────────────────────────────────────────
-
-    /**
-     * Serialises every constant as:
-     *   [1 byte tag] [4-byte int: byte length of data] [data bytes]
-     *
-     * Then encrypts the data bytes (NOT the tag/length prefix) using:
-     *   pass 1 — each byte ^= keyA
-     *   pass 2 — each byte = rotateLeft(byte, index & 7)
-     *   pass 3 — each byte ^= keyB
-     */
     private byte[] buildPayload(Object[] values, byte keyA, byte keyB) {
         // Collect raw byte representations per slot
         List<byte[]> raws = new ArrayList<>(values.length);
         List<Byte>   tags = new ArrayList<>(values.length);
-
         for (Object v : values) {
             byte[] raw;
             byte   tag;
@@ -257,18 +231,9 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         return out;
     }
 
-    // ── Bytecode builders ─────────────────────────────────────────────────────
-
-    /**
-     * Builds clinit code that:
-     *   1. Creates and populates the JNT$data byte[] from baked-in literals.
-     *   2. Creates an empty JNT$pool Object[N].
-     */
     private InsnList buildInit(String owner, String poolField, String dataField,
                                 byte[] payload, int poolSize) {
         InsnList il = new InsnList();
-
-        // ── JNT$data = new byte[]{ payload bytes } ───────────────────────────
         il.add(pushInt(payload.length));
         il.add(new IntInsnNode(NEWARRAY, T_BYTE));
         for (int i = 0; i < payload.length; i++) {
@@ -364,9 +329,6 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         il.add(new VarInsnNode(ILOAD, 1));
         il.add(new InsnNode(BALOAD));
         il.add(new VarInsnNode(ISTORE, 3));                   // tag
-
-        // len = ((data[offset+1]&0xFF)<<24) | ((data[offset+2]&0xFF)<<16)
-        //      | ((data[offset+3]&0xFF)<<8) | (data[offset+4]&0xFF)
         il.add(new VarInsnNode(ALOAD, 2));
         il.add(new VarInsnNode(ILOAD, 1));
         il.add(new InsnNode(ICONST_1));
@@ -411,16 +373,12 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         il.add(new MethodInsnNode(INVOKESTATIC,
                 "java/lang/System", "arraycopy",
                 "(Ljava/lang/Object;ILjava/lang/Object;II)V", false));
-
-    
         il.add(new InsnNode(ICONST_0));
         il.add(new VarInsnNode(ISTORE, 6));                   // i = 0
-
         il.add(decryptCheck);
         il.add(new VarInsnNode(ILOAD, 6));
         il.add(new VarInsnNode(ILOAD, 4));
         il.add(new JumpInsnNode(IF_ICMPGE, reconstruct));     // if i >= len → done
-
         il.add(decryptLoop);
         // b = (raw[i] & 0xFF) ^ keyB
         il.add(new VarInsnNode(ALOAD, 5));
@@ -429,7 +387,6 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND));
         il.add(pushInt(keyB & 0xFF)); il.add(new InsnNode(IXOR));
         il.add(new VarInsnNode(ISTORE, 7));                   // b
-
         // rot = i & 7  (stays in i's spot on stack temporarily — use local 8 temporarily)
         // b = ((b >>> rot) | (b << (8 - rot))) & 0xFF
         il.add(new VarInsnNode(ILOAD, 7));
@@ -445,11 +402,9 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
         il.add(new InsnNode(ISHL));                           // b << (8 - rot)
         il.add(new InsnNode(IOR));
         il.add(pushInt(0xFF)); il.add(new InsnNode(IAND));    // & 0xFF
-
         // b ^= keyA
         il.add(pushInt(keyA & 0xFF)); il.add(new InsnNode(IXOR));
         il.add(new VarInsnNode(ISTORE, 7));                   // b (decrypted)
-
         // raw[i] = (byte) b
         il.add(new VarInsnNode(ALOAD, 5));
         il.add(new VarInsnNode(ILOAD, 6));
