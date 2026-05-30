@@ -76,7 +76,7 @@ mutators:
       - mba
       - dead-code
       - method-split
-    #  - virtualize
+      - virtualize
     #  - ref
       - var-duplicate
       - mutilate-return
@@ -251,8 +251,8 @@ mutators:
         chance: 85                 # % chance to inject at each eligible site
 
       virtualize:
-        enabled: false
-        chance: 75   # % of integer constants to virtualize (0-100)
+        enabled: true
+        chance: 30   # % of integer constants to virtualize (0-100)
 
       method-split:
         enabled: true
