@@ -7,6 +7,7 @@ import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
 import war.metaphor.util.Chance;
+import war.jnt.dash.Logger;
 import war.metaphor.util.asm.BytecodeUtil;
 import war.metaphor.util.builder.ClassBuilder;
 
@@ -51,7 +52,8 @@ public class VirtualizingTransformer extends Mutator {
             }
         }
         
-        base.getLogger().info("VirtualizingTransformer: Virtualized " + virtualizedCount + " methods");
+        Logger.INSTANCE.logln(Level.INFO, Origin.METAPHOR,
+     "VirtualizingTransformer: Virtualized " + virtualizedCount + " methods");
 
         JClassNode vmClass = buildVmClass();
         base.addClass(vmClass);
