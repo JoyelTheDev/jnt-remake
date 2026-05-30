@@ -8,6 +8,8 @@ import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
 import war.metaphor.util.Chance;
 import war.jnt.dash.Logger;
+import war.jnt.dash.Level;
+import war.jnt.dash.Origin;
 import war.metaphor.util.asm.BytecodeUtil;
 import war.metaphor.util.builder.ClassBuilder;
 
