@@ -150,7 +150,7 @@ public final class VmOpcodes {
     public static final int MONITOREXIT;
 
     static {
-        int[] pool = RNG.ints(0, Integer.MAX_VALUE).distinct().limit(140).toArray();
+        int[] pool = RNG.ints(0, Integer.MAX_VALUE).distinct().limit(142).toArray();
         int i = 0;
         NOP            = pool[i++];
         IPUSH          = pool[i++];
