@@ -4,6 +4,8 @@ import org.objectweb.asm.tree.MethodNode;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.analysis.callgraph.CallGraph;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
@@ -17,6 +19,7 @@ import java.util.Set;
 
 @Stability(Level.UNKNOWN)
 public class UnusedMethodTransformer extends Mutator {
+
     public UnusedMethodTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
@@ -25,6 +28,7 @@ public class UnusedMethodTransformer extends Mutator {
     public void run(ObfuscatorContext base) {
         CallGraph callGraph = new CallGraph();
         callGraph.buildGraph();
+        int removed = 0;
 
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
@@ -57,10 +61,14 @@ public class UnusedMethodTransformer extends Mutator {
                     break;
                 }
 
+                removed += toRemove.size();
                 classNode.methods.removeAll(toRemove);
                 Hierarchy.INSTANCE.ensureGraphBuilt();
-            } while(modified);
+            } while (modified);
         }
+
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "UnusedMethodTransformer: Removed " + removed + " unused methods");
     }
 
     private boolean isMain(MethodNode method) {

@@ -5,6 +5,8 @@ import org.objectweb.asm.tree.*;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.analysis.graph.Block;
 import war.metaphor.analysis.graph.ControlFlowGraph;
 import war.metaphor.base.ObfuscatorContext;
@@ -35,13 +37,13 @@ public class OpaquePredicatesTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext base) {
+        int processed = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
             for (MethodNode method : classNode.methods) {
                 if (classNode.isExempt(method)) continue;
                 int leeway = BytecodeUtil.leeway(method);
-                if (leeway < 30000)
-                    continue;
+                if (leeway < 30000) continue;
                 ControlFlowGraph graph = new ControlFlowGraph(classNode, method);
                 if (!graph.compute()) continue;
                 if (graph.getBlocks().isEmpty()) continue;
@@ -79,19 +81,16 @@ public class OpaquePredicatesTransformer extends Mutator {
                     if (block == null) continue;
                     int blockSeed = block.getSeed();
                     if (instruction instanceof LookupSwitchInsnNode || instruction instanceof TableSwitchInsnNode) {
-
                         Map<LabelNode, LabelNode> newLabels = new HashMap<>();
                         List<LabelNode> targets = graph.getJumpTargets(instruction);
                         for (LabelNode target : targets) {
                             newLabels.put(target, new LabelNode());
                         }
-
                         AbstractInsnNode clone = graph.clone(instruction);
                         LabelNode end = new LabelNode();
                         InsnList blockList = new InsnList();
                         blockList.add(new InsnNode(DUP));
                         blockList.add(clone);
-
                         for (LabelNode original : newLabels.keySet()) {
                             LabelNode newLabel = newLabels.get(original);
                             BytecodeUtil.replaceLabelNode(clone, original, newLabel);
@@ -103,10 +102,8 @@ public class OpaquePredicatesTransformer extends Mutator {
                                     .istore(predicateLocal).build());
                             blockList.add(new JumpInsnNode(GOTO, end));
                         }
-
                         blockList.add(end);
                         method.instructions.insertBefore(instruction, blockList);
-
                     }
                 }
 
@@ -119,7 +116,6 @@ public class OpaquePredicatesTransformer extends Mutator {
                                     .list(BytecodeUtil.generateSeeded(predicateLocal, targetSeed, blockSeed))
                                     .istore(predicateLocal).build());
                         } else {
-
                             Map<LabelNode, Integer> labelSeeds = new HashMap<>();
                             LabelNode dflt = new LabelNode();
                             for (Block accessor : block.getTrapAccessors())
@@ -144,10 +140,8 @@ public class OpaquePredicatesTransformer extends Mutator {
                                         .istore(predicateLocal).build());
                                 lookupList.add(new JumpInsnNode(GOTO, end));
                             }
-
                             lookupList.add(end);
                             method.instructions.insert(block.getStart(), lookupList);
-
                         }
                     }
                 }
@@ -157,8 +151,10 @@ public class OpaquePredicatesTransformer extends Mutator {
                         opaque.handle(method, block, predicateLocal);
                     }
                 }
-
+                processed++;
             }
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "OpaquePredicatesTransformer: Applied opaque predicates to " + processed + " methods");
     }
 }

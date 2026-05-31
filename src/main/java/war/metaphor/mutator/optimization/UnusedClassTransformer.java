@@ -5,6 +5,8 @@ import org.objectweb.asm.tree.*;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
@@ -14,6 +16,7 @@ import java.util.HashSet;
 
 @Stability(Level.UNKNOWN)
 public class UnusedClassTransformer extends Mutator {
+
     public UnusedClassTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
@@ -34,6 +37,9 @@ public class UnusedClassTransformer extends Mutator {
 
             toRemove.forEach(base.getClasses()::remove);
         } while (beforeSize != toRemove.size());
+
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "UnusedClassTransformer: Removed " + toRemove.size() + " unused classes");
     }
 
     private static boolean canRemove(final ObfuscatorContext base, final JClassNode clazz) {

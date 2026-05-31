@@ -6,6 +6,8 @@ import org.objectweb.asm.tree.MethodNode;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
@@ -21,6 +23,7 @@ public class StripTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext base) {
+        int stripped = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
             classNode.sourceDebug = null;
@@ -32,6 +35,7 @@ public class StripTransformer extends Mutator {
                 for (AbstractInsnNode instruction : method.instructions) {
                     if (instruction instanceof LineNumberNode) {
                         method.instructions.remove(instruction);
+                        stripped++;
                     }
                 }
                 method.localVariables = null;
@@ -45,6 +49,7 @@ public class StripTransformer extends Mutator {
                 field.signature = null;
             }
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "StripTransformer: Stripped " + stripped + " line number nodes");
     }
-
 }
