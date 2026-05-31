@@ -28,7 +28,7 @@ public class BlockBreakTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext ctx) {
-        int broken = 0;
+        int[] broken = {0};
         for (JClassNode classNode : ctx.getClasses()) {
             if (classNode.isExempt()) continue;
             for (MethodNode method : classNode.methods) {
@@ -47,7 +47,7 @@ public class BlockBreakTransformer extends Mutator {
                         for (AbstractInsnNode node : list) {
                             LabelNode label = new LabelNode();
                             method.instructions.insertBefore(node, label);
-                            broken++;
+                            broken[0]++;
                         }
                     });
                     size = BytecodeUtil.leeway(method);
@@ -55,6 +55,6 @@ public class BlockBreakTransformer extends Mutator {
             }
         }
         Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
-                "BlockBreakTransformer: Inserted " + broken + " block-break labels");
+                "BlockBreakTransformer: Inserted " + broken[0] + " block-break labels");
     }
 }
