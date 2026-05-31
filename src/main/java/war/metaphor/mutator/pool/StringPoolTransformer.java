@@ -4,6 +4,8 @@ import org.objectweb.asm.tree.*;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
@@ -11,56 +13,28 @@ import war.metaphor.util.asm.BytecodeUtil;
 
 import java.util.*;
 
-/**
- * StringPoolTransformer
- *
- * Collects every string constant in a class into a single private static
- * {@code String[]} field (the "pool") and replaces each {@code LDC "..."} with
- * a {@code GETSTATIC} + integer index load + {@code AALOAD}.
- *
- * Before:
- * <pre>
- *   LDC "Hello, World!"
- * </pre>
- *
- * After:
- * <pre>
- *   GETSTATIC Owner.IlIl1lIl [Ljava/lang/String;
- *   ICONST_0
- *   AALOAD
- * </pre>
- *
- * Strings inside {@code <clinit>} are skipped to avoid circular init.
- * Duplicate literals map to the same pool slot.
- * Interfaces are skipped (no reliable static init side-effects).
- *
- * Registration in Metaphor.java:
- *   .mutator("string.pool", StringPoolTransformer.class)
- *
- * config.yml — just enable/disable, no other knobs:
- *   string.pool:
- *     enabled: true
- *
- * Recommended: run BEFORE string.light / string.stack so the literals
- * inside the pool are subsequently encrypted by those passes.
- */
 @Stability(Level.HIGH)
 public class StringPoolTransformer extends Mutator {
     private static final String POOL_DESC = "[Ljava/lang/String;";
     private static final char[] ILLUSION  = "IlI1lIl1lIIl1lI".toCharArray();
+
     public StringPoolTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
     }
 
     @Override
     public void run(ObfuscatorContext base) {
+        int pooled = 0;
         for (JClassNode cn : base.getClasses()) {
             if (cn.isExempt())    continue;
             if (cn.isInterface()) continue;
-            processClass(cn);
+            pooled += processClass(cn);
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "StringPoolTransformer: Pooled " + pooled + " string references");
     }
-    private void processClass(JClassNode cn) {
+
+    private int processClass(JClassNode cn) {
         LinkedHashMap<String, Integer> poolIndex = new LinkedHashMap<>();
         List<Candidate> targets = new ArrayList<>();
         for (MethodNode mn : cn.methods) {
@@ -75,7 +49,7 @@ public class StringPoolTransformer extends Mutator {
                 targets.add(new Candidate(mn, ain, value));
             }
         }
-        if (poolIndex.isEmpty()) return;
+        if (poolIndex.isEmpty()) return 0;
         String[] pool = new String[poolIndex.size()];
         poolIndex.forEach((v, i) -> pool[i] = v);
         String fieldName = uniqueFieldName(cn);
@@ -87,13 +61,17 @@ public class StringPoolTransformer extends Mutator {
         AbstractInsnNode first = firstReal(clinit);
         if (first == null) clinit.instructions.insert(init);
         else               clinit.instructions.insertBefore(first, init);
+        int replaced = 0;
         for (Candidate c : targets) {
             InsnList replacement = buildAccess(cn.name, fieldName, poolIndex.get(c.value));
             if (!BytecodeUtil.hasSpace(c.method, replacement)) continue;
             c.method.instructions.insertBefore(c.ldc, replacement);
             c.method.instructions.remove(c.ldc);
+            replaced++;
         }
+        return replaced;
     }
+
     private InsnList buildInitialiser(String owner, String fieldName, String[] pool) {
         InsnList il = new InsnList();
         il.add(pushInt(pool.length));
@@ -115,6 +93,7 @@ public class StringPoolTransformer extends Mutator {
         il.add(new InsnNode(AALOAD));
         return il;
     }
+
     private static AbstractInsnNode pushInt(int value) {
         if (value >= -1 && value <= 5)
             return new InsnNode(ICONST_0 + value);
@@ -124,6 +103,7 @@ public class StringPoolTransformer extends Mutator {
             return new IntInsnNode(SIPUSH, value);
         return new LdcInsnNode(value);
     }
+
     private static AbstractInsnNode firstReal(MethodNode mn) {
         for (AbstractInsnNode ain : mn.instructions)
             if (ain.getOpcode() >= 0) return ain;
@@ -142,5 +122,6 @@ public class StringPoolTransformer extends Mutator {
         } while (used.contains(name));
         return name;
     }
+
     private record Candidate(MethodNode method, AbstractInsnNode ldc, String value) {}
 }

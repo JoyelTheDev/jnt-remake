@@ -4,6 +4,8 @@ import war.configuration.ConfigurationSection;
 import war.jar.JarResource;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.jnt.utility.mapping.Mapping;
 import war.jnt.utility.mapping.impl.ClassIdentity;
 import war.metaphor.base.ObfuscatorContext;
@@ -51,8 +53,6 @@ public class ClassRenameTransformer extends MappingMutator {
 
         map(base, mapping);
 
-        // Store the rename map on the context so JClassNode.compute() can
-        // re-apply it inside fallback bytes (references in method bodies).
         base.getClassRenameMap().putAll(mapping);
 
         Manifest manifest = base.getManifest();
@@ -60,13 +60,9 @@ public class ClassRenameTransformer extends MappingMutator {
             Attributes attrs = manifest.getMainAttributes();
             attrs.replaceAll((_, val) -> {
                 if (val instanceof String strVal) {
-                    // Manifest Main-Class uses dot-notation (e.g. me.exeos.jnicx.Main).
-                    // Our mapping keys use slash-notation (e.g. me/exeos/jnicx/Main).
-                    // Normalise to slashes for the lookup, then convert the result back to dots.
                     String slashForm = strVal.replace('.', '/');
                     String renamed   = mapping.get(slashForm);
                     if (renamed != null) {
-                        // Convert the new slash-form name back to dot-notation for the manifest.
                         return renamed.replace('/', '.');
                     }
                 }
@@ -84,5 +80,8 @@ public class ClassRenameTransformer extends MappingMutator {
                 resource.setContent(handler.handle(contents, mapping).getBytes(StandardCharsets.UTF_8));
             }
         }
+
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "ClassRenameTransformer: Renamed " + mapping.size() + " classes");
     }
 }

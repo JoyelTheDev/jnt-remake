@@ -5,6 +5,8 @@ import org.objectweb.asm.tree.*;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.analysis.graph.Block;
 import war.metaphor.analysis.graph.ControlFlowGraph;
 import war.metaphor.base.ObfuscatorContext;
@@ -15,11 +17,6 @@ import war.metaphor.util.asm.BytecodeUtil;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
-/**
- * This works now
- *
- * @author jan
- */
 @Stability(Level.VERY_HIGH)
 public class ControlFlowFlatteningTransformer extends Mutator {
 
@@ -29,21 +26,22 @@ public class ControlFlowFlatteningTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext ctx) {
-
+        int flattened = 0;
         for (JClassNode classNode : ctx.getClasses()) {
             if (classNode.isExempt()) continue;
             for (MethodNode method : classNode.methods) {
-                if (Modifier.isAbstract(method.access))continue;
+                if (Modifier.isAbstract(method.access)) continue;
                 if (classNode.isExempt(method)) continue;
                 int size = BytecodeUtil.leeway(method);
-                if (size < 30000)
-                    continue;
+                if (size < 30000) continue;
                 ControlFlowGraph graph = new ControlFlowGraph(classNode, method);
-                if (!graph.compute())
-                    continue;
+                if (!graph.compute()) continue;
                 flatten(method, graph);
+                flattened++;
             }
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "ControlFlowFlatteningTransformer: Flattened " + flattened + " methods");
     }
 
     private void flatten(MethodNode method, ControlFlowGraph graph) {
@@ -99,7 +97,6 @@ public class ControlFlowFlatteningTransformer extends Mutator {
                     list.add(blockList);
                 }
             }
-
             method.instructions.add(list);
         }
     }
@@ -111,5 +108,4 @@ public class ControlFlowFlatteningTransformer extends Mutator {
             key = rand.nextInt();
         return key;
     }
-
 }

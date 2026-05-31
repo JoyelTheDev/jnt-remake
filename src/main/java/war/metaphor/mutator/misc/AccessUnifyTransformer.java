@@ -2,15 +2,14 @@ package war.metaphor.mutator.misc;
 
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.yaml.snakeyaml.nodes.AnchorNode;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
-
-import java.util.concurrent.SubmissionPublisher;
 
 @Stability(Level.MEDIUM)
 public class AccessUnifyTransformer extends Mutator {
@@ -22,9 +21,11 @@ public class AccessUnifyTransformer extends Mutator {
     @Override
     public void run(ObfuscatorContext base) {
         final boolean exploit = config.getBoolean("exploit", false);
+        int members = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
             classNode.access = handle(classNode.access);
+            if (exploit) classNode.access = exploitClass(classNode.access);
             if (classNode.isInterface()) continue;
             for (MethodNode method : classNode.methods) {
                 if (classNode.isExempt(method)) continue;
@@ -32,6 +33,7 @@ public class AccessUnifyTransformer extends Mutator {
                 if (exploit && !method.name.contains("<")) {
                     method.access = exploitMethod(method.access);
                 }
+                members++;
             }
             for (FieldNode field : classNode.fields) {
                 if (classNode.isExempt(field)) continue;
@@ -39,12 +41,11 @@ public class AccessUnifyTransformer extends Mutator {
                 if (exploit) {
                     field.access = exploitField(field.access);
                 }
-            }
-
-            if (exploit) {
-                classNode.access = exploitClass(classNode.access);
+                members++;
             }
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "AccessUnifyTransformer: Unified access on " + members + " members");
     }
 
     private int exploitMethod(int access) {
@@ -70,7 +71,6 @@ public class AccessUnifyTransformer extends Mutator {
         access |= ACC_SUPER;
         access |= ACC_OPEN;
         access |= ACC_ENUM;
-        // access |= ACC_ABSTRACT; // would require more checks, works tho
         return access;
     }
 

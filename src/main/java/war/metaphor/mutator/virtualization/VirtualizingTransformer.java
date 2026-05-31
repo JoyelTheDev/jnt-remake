@@ -36,11 +36,11 @@ public class VirtualizingTransformer extends Mutator {
         interpreterOwner = "vm/" + UUID.randomUUID().toString().replace("-", "");
         interpreterMethod = VmInterpreter.generate(interpreterOwner, "run", null, 0, true);
         List<JClassNode> toAdd = new ArrayList<>();
-        int virtualizedCount = 0; 
+        int virtualizedCount = 0;
         for (JClassNode jcn : base.getClasses()) {
             if (jcn.isExempt()) continue;
             if (jcn.isInterface()) continue;
-            
+
             for (MethodNode mn : new ArrayList<>(jcn.methods)) {
                 if (Modifier.isAbstract(mn.access)) continue;
                 if (Modifier.isNative(mn.access)) continue;
@@ -53,9 +53,9 @@ public class VirtualizingTransformer extends Mutator {
                 virtualizedCount++;
             }
         }
-        
+
         Logger.INSTANCE.logln(Level.INFO, Origin.METAPHOR,
-     "VirtualizingTransformer: Virtualized " + virtualizedCount + " methods");
+                "VirtualizingTransformer: Virtualized " + virtualizedCount + " methods");
 
         JClassNode vmClass = buildVmClass();
         base.addClass(vmClass);

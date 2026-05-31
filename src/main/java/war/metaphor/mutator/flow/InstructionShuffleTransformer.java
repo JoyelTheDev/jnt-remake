@@ -4,6 +4,8 @@ import org.objectweb.asm.tree.*;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.analysis.graph.Block;
 import war.metaphor.analysis.graph.ControlFlowGraph;
 import war.metaphor.base.ObfuscatorContext;
@@ -25,24 +27,27 @@ public class InstructionShuffleTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext base) {
+        int shuffled = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
-            apply(classNode);
+            int before = shuffled;
+            shuffled += apply(classNode);
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "InstructionShuffleTransformer: Shuffled " + shuffled + " methods");
     }
 
-    public void apply(JClassNode node) {
+    public int apply(JClassNode node) {
+        int count = 0;
         for (MethodNode method : node.methods) {
             if (Modifier.isAbstract(method.access)) continue;
             if (node.isExempt(method)) continue;
             int size = BytecodeUtil.leeway(method);
-            if (size < 30000)
-                continue;
+            if (size < 30000) continue;
 
             ControlFlowGraph graph = new ControlFlowGraph(node, method);
             graph.compute();
-            if (graph.getBlocks().isEmpty())
-                continue;
+            if (graph.getBlocks().isEmpty()) continue;
             Collections.shuffle(graph.getBlocks());
             for (Block block : graph.getBlocks()) {
                 if (block.isTrap()) continue;
@@ -63,6 +68,8 @@ public class InstructionShuffleTransformer extends Mutator {
 
             method.instructions.insert(new JumpInsnNode(GOTO, graph.getStart()));
             method.localVariables = null;
+            count++;
         }
+        return count;
     }
 }

@@ -6,6 +6,8 @@ import org.objectweb.asm.tree.MethodNode;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.analysis.graph.Block;
 import war.metaphor.analysis.graph.ControlFlowGraph;
 import war.metaphor.base.ObfuscatorContext;
@@ -26,7 +28,7 @@ public class BlockBreakTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext ctx) {
-
+        int broken = 0;
         for (JClassNode classNode : ctx.getClasses()) {
             if (classNode.isExempt()) continue;
             for (MethodNode method : classNode.methods) {
@@ -37,8 +39,7 @@ public class BlockBreakTransformer extends Mutator {
                 Collection<Block> blocks = graph.getBlocks();
                 int size = BytecodeUtil.leeway(method);
                 for (Block block : blocks) {
-                    if (size < 30000)
-                        break;
+                    if (size < 30000) break;
                     List<List<AbstractInsnNode>> sameFrames = graph.groupSameFrames(block.getInstructions());
                     sameFrames.forEach(list -> list.removeIf(insn -> list.stream().anyMatch(otherInsn -> insn != otherInsn && Math.abs(insn.index - otherInsn.index) < 2)));
                     sameFrames.removeIf(list -> list.size() < 2 || list.size() >= 20);
@@ -46,12 +47,14 @@ public class BlockBreakTransformer extends Mutator {
                         for (AbstractInsnNode node : list) {
                             LabelNode label = new LabelNode();
                             method.instructions.insertBefore(node, label);
+                            broken++;
                         }
                     });
                     size = BytecodeUtil.leeway(method);
                 }
             }
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "BlockBreakTransformer: Inserted " + broken + " block-break labels");
     }
-
 }

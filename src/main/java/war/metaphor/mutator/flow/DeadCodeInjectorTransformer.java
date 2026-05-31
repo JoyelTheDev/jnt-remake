@@ -4,6 +4,8 @@ import org.objectweb.asm.tree.*;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
 import war.metaphor.tree.JClassNode;
@@ -12,7 +14,6 @@ import war.metaphor.util.asm.BytecodeUtil;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
-
 
 @Stability(Level.VERY_HIGH)
 public class DeadCodeInjectorTransformer extends Mutator {
@@ -30,18 +31,21 @@ public class DeadCodeInjectorTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext base) {
+        int totalInjected = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
             for (MethodNode method : classNode.methods) {
                 if (classNode.isExempt(method)) continue;
                 if (Modifier.isAbstract(method.access)) continue;
                 if (BytecodeUtil.leeway(method) < 30000) continue;
-                processMethod(method);
+                totalInjected += processMethod(method);
             }
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "DeadCodeInjectorTransformer: Injected " + totalInjected + " dead code blocks");
     }
 
-    private void processMethod(MethodNode method) {
+    private int processMethod(MethodNode method) {
         List<AbstractInsnNode> sites = new ArrayList<>();
         for (AbstractInsnNode insn : method.instructions) {
             int op = insn.getOpcode();
@@ -53,7 +57,7 @@ public class DeadCodeInjectorTransformer extends Mutator {
             }
         }
 
-        if (sites.isEmpty()) return;
+        if (sites.isEmpty()) return 0;
         int injected = 0;
         for (AbstractInsnNode site : sites) {
             if (injected >= maxInjections) break;
@@ -63,6 +67,7 @@ public class DeadCodeInjectorTransformer extends Mutator {
             method.instructions.insert(site, block);
             injected++;
         }
+        return injected;
     }
 
     private InsnList buildDeadBlock(MethodNode method) {
@@ -93,6 +98,7 @@ public class DeadCodeInjectorTransformer extends Mutator {
         out.add(new VarInsnNode(ASTORE, var));
         return out;
     }
+
     private InsnList deadFakeArith(MethodNode method) {
         InsnList out = new InsnList();
         method.maxStack = Math.max(method.maxStack, 4);
@@ -108,6 +114,7 @@ public class DeadCodeInjectorTransformer extends Mutator {
         out.add(new InsnNode(POP));
         return out;
     }
+
     private InsnList deadFakeField() {
         InsnList out = new InsnList();
         out.add(new MethodInsnNode(INVOKESTATIC,
@@ -115,6 +122,7 @@ public class DeadCodeInjectorTransformer extends Mutator {
         out.add(new InsnNode(POP));
         return out;
     }
+
     private InsnList deadFakeArray() {
         InsnList out = new InsnList();
         int size = rand.nextInt(8) + 2;
@@ -124,7 +132,7 @@ public class DeadCodeInjectorTransformer extends Mutator {
         out.add(new InsnNode(POP));
         return out;
     }
-    
+
     private InsnList deadFakeException() {
         InsnList out = new InsnList();
         String[] types = {

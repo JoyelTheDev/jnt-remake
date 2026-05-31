@@ -4,6 +4,8 @@ import org.objectweb.asm.tree.*;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.engine.Engine;
 import war.metaphor.engine.types.IntegerEngine;
@@ -22,14 +24,14 @@ public class SwitchTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext base) {
+        int transformed = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
             for (MethodNode method : classNode.methods) {
                 if (Modifier.isAbstract(method.access)) continue;
                 if (classNode.isExempt(method)) continue;
                 int leeway = BytecodeUtil.leeway(method);
-                if (leeway < 30000)
-                    break;
+                if (leeway < 30000) break;
                 for (AbstractInsnNode instruction : method.instructions) {
                     if (instruction instanceof TableSwitchInsnNode node) {
                         int[] keys = new int[node.labels.size()];
@@ -44,6 +46,7 @@ public class SwitchTransformer extends Mutator {
                         BytecodeUtil.fixLookupSwitch(switchInsnNode);
                         method.instructions.insertBefore(node, switchInsnNode);
                         method.instructions.remove(node);
+                        transformed++;
                     }
                 }
                 for (AbstractInsnNode instruction : method.instructions) {
@@ -52,13 +55,14 @@ public class SwitchTransformer extends Mutator {
                         Engine engine = new IntegerEngine(6);
                         instructions.add(engine.getForwardInstructions());
                         method.instructions.insertBefore(node, instructions);
-                        node.keys.replaceAll(
-                                engine::run
-                        );
+                        node.keys.replaceAll(engine::run);
                         BytecodeUtil.fixLookupSwitch(node);
+                        transformed++;
                     }
                 }
             }
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "SwitchTransformer: Transformed " + transformed + " switches");
     }
 }

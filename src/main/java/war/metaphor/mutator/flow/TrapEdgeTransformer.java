@@ -6,6 +6,8 @@ import org.objectweb.asm.tree.analysis.Frame;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.metaphor.analysis.graph.ControlFlowGraph;
 import war.metaphor.base.ObfuscatorContext;
 import war.metaphor.mutator.Mutator;
@@ -16,9 +18,6 @@ import java.lang.reflect.Modifier;
 import java.security.SecureRandom;
 import java.util.Map;
 
-/**
- * @author etho
- */
 @Stability(Level.MEDIUM)
 public class TrapEdgeTransformer extends Mutator {
 
@@ -28,6 +27,7 @@ public class TrapEdgeTransformer extends Mutator {
 
     @Override
     public void run(ObfuscatorContext base) {
+        int injected = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
             for (MethodNode method : classNode.methods) {
@@ -38,8 +38,7 @@ public class TrapEdgeTransformer extends Mutator {
                 Map<AbstractInsnNode, Frame<BasicValue>> frames = graph.getFrames();
                 int leeway = BytecodeUtil.leeway(method);
                 for (AbstractInsnNode instruction : method.instructions) {
-                    if (leeway < 30000)
-                        break;
+                    if (leeway < 30000) break;
                     Frame<BasicValue> frame = frames.get(instruction);
                     if (frame == null) continue;
                     if (instruction.getOpcode() != GOTO) continue;
@@ -66,8 +65,11 @@ public class TrapEdgeTransformer extends Mutator {
                     method.instructions.insertBefore(instruction, list);
                     method.instructions.remove(instruction);
                     leeway = BytecodeUtil.leeway(method);
+                    injected++;
                 }
             }
         }
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "TrapEdgeTransformer: Injected " + injected + " trap edges");
     }
 }

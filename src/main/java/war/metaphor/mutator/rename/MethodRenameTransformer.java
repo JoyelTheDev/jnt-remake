@@ -4,6 +4,8 @@ import org.objectweb.asm.tree.MethodNode;
 import war.configuration.ConfigurationSection;
 import war.jnt.annotate.Level;
 import war.jnt.annotate.Stability;
+import war.jnt.dash.Logger;
+import war.jnt.dash.Origin;
 import war.jnt.utility.mapping.Mapping;
 import war.jnt.utility.mapping.impl.MemberIdentity;
 import war.metaphor.base.ObfuscatorContext;
@@ -36,6 +38,7 @@ public class MethodRenameTransformer extends MappingMutator {
     @Override
     public void run(ObfuscatorContext base) {
         Map<String, String> mapping = new HashMap<>();
+        int renamed = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
             Set<JClassNode> classTree = Hierarchy.INSTANCE.getClassHierarchy(classNode);
@@ -65,6 +68,7 @@ public class MethodRenameTransformer extends MappingMutator {
 
                 if (newName == null) {
                     newName = Dictionary.gen(length, Purpose.METHOD, mode, prefix);
+                    renamed++;
                 }
 
                 for (JClassNode node : classTree) {
@@ -85,5 +89,7 @@ public class MethodRenameTransformer extends MappingMutator {
         }
 
         map(base, mapping);
+        Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
+                "MethodRenameTransformer: Renamed " + renamed + " methods");
     }
 }
