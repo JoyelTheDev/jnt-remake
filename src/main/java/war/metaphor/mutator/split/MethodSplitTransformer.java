@@ -23,11 +23,16 @@ public class MethodSplitTransformer extends Mutator {
     private final int parts;
     private final int chance;
 
+    private static final Set<Integer> UNCONDITIONAL_EXIT = Set.of(
+            GOTO, TABLESWITCH, LOOKUPSWITCH,
+            IRETURN, LRETURN, FRETURN, DRETURN, ARETURN, RETURN, ATHROW
+    );
+
     public MethodSplitTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
-        this.minInsn = config == null ? 40 : config.getInt("min-insn", 40);
-        this.parts   = Math.max(2, Math.min(4, config == null ? 2 : config.getInt("parts", 2)));
-        this.chance  = config == null ? 50 : config.getInt("chance", 50);
+        this.minInsn = config == null ? 40  : config.getInt("min-insn", 40);
+        this.parts   = Math.max(2, Math.min(8, config == null ? 2 : config.getInt("parts", 2)));
+        this.chance  = config == null ? 100 : config.getInt("chance", 100);
     }
 
     @Override
@@ -38,191 +43,186 @@ public class MethodSplitTransformer extends Mutator {
             if (classNode.isInterface()) continue;
 
             List<MethodNode> toAdd = new ArrayList<>();
-
-            for (MethodNode method : classNode.methods) {
+            for (MethodNode method : new ArrayList<>(classNode.methods)) {
                 if (classNode.isExempt(method)) continue;
                 if (Modifier.isAbstract(method.access)) continue;
                 if (method.name.equals("<init>") || method.name.equals("<clinit>")) continue;
-                if (method.instructions == null || method.instructions.size() < minInsn) continue;
-                if (method.tryCatchBlocks != null && !method.tryCatchBlocks.isEmpty()) continue;
-                if (hasAnyJump(method)) continue;
-                if (method.instructions.getFirst() == null) continue;
+                if (method.instructions == null || countReal(method) < minInsn) continue;
                 if (rand.nextInt(100) >= chance) continue;
-                List<MethodNode> splitParts = splitMethod(classNode, method);
-                if (splitParts != null) {
-                    toAdd.addAll(splitParts);
+                List<MethodNode> created = splitMethod(classNode, method);
+                if (created != null) {
+                    toAdd.addAll(created);
                     split++;
                 }
             }
-
             classNode.methods.addAll(toAdd);
         }
         Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
                 "MethodSplitTransformer: Split " + split + " methods");
     }
 
-    private boolean hasAnyJump(MethodNode method) {
-        for (AbstractInsnNode n : method.instructions) {
-            int op = n.getOpcode();
-            if ((op >= IFEQ && op <= JSR) || op == TABLESWITCH || op == LOOKUPSWITCH) {
-                return true;
+    private int countReal(MethodNode mn) {
+        int c = 0;
+        for (AbstractInsnNode n : mn.instructions) if (n.getOpcode() >= 0) c++;
+        return c;
+    }
+
+    private List<MethodNode> splitMethod(JClassNode classNode, MethodNode method) {
+        AbstractInsnNode[] all = method.instructions.toArray();
+        if (all.length == 0) return null;
+
+        Set<LabelNode> jumpTargets = collectJumpTargets(method);
+
+        Map<AbstractInsnNode, Integer> pos = new HashMap<>();
+        for (int i = 0; i < all.length; i++) pos.put(all[i], i);
+
+        int total = all.length;
+        int mid = total / 2;
+        int bestCut = -1;
+        int bestDist = Integer.MAX_VALUE;
+
+        for (int i = 1; i < total; i++) {
+            AbstractInsnNode cur = all[i];
+            if (cur.getOpcode() < 0) continue;
+
+            AbstractInsnNode prev = prevReal(cur);
+            if (prev == null) continue;
+            if (!UNCONDITIONAL_EXIT.contains(prev.getOpcode())) continue;
+            if (forwardJumpCrossed(all, i, jumpTargets)) continue;
+
+            int dist = Math.abs(i - mid);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestCut = i;
+            }
+        }
+
+        if (bestCut < 0) return null;
+        return doSplit(classNode, method, all, bestCut);
+    }
+
+    private boolean forwardJumpCrossed(AbstractInsnNode[] all, int cutIdx,
+                                        Set<LabelNode> jumpTargets) {
+        Set<LabelNode> tailLabels = new HashSet<>();
+        for (int i = cutIdx; i < all.length; i++)
+            if (all[i] instanceof LabelNode ln) tailLabels.add(ln);
+
+        for (int i = 0; i < cutIdx; i++) {
+            AbstractInsnNode n = all[i];
+            if (n instanceof JumpInsnNode jin && tailLabels.contains(jin.label)) return true;
+            if (n instanceof TableSwitchInsnNode ts) {
+                if (tailLabels.contains(ts.dflt)) return true;
+                for (LabelNode lb : ts.labels) if (tailLabels.contains(lb)) return true;
+            }
+            if (n instanceof LookupSwitchInsnNode ls) {
+                if (tailLabels.contains(ls.dflt)) return true;
+                for (LabelNode lb : ls.labels) if (tailLabels.contains(lb)) return true;
             }
         }
         return false;
     }
 
-    private List<MethodNode> splitMethod(JClassNode classNode, MethodNode method) {
-        AbstractInsnNode[] all = method.instructions.toArray();
-        if (all == null || all.length == 0) return null;
-        if (method.instructions.getFirst() == null) return null;
-
-        List<AbstractInsnNode> real = new ArrayList<>();
-        for (AbstractInsnNode n : all) {
-            if (n.getOpcode() >= 0) real.add(n);
+    private Set<LabelNode> collectJumpTargets(MethodNode mn) {
+        Set<LabelNode> targets = new HashSet<>();
+        for (AbstractInsnNode n : mn.instructions) {
+            if (n instanceof JumpInsnNode jin) targets.add(jin.label);
+            if (n instanceof TableSwitchInsnNode ts) { targets.add(ts.dflt); targets.addAll(ts.labels); }
+            if (n instanceof LookupSwitchInsnNode ls) { targets.add(ls.dflt); targets.addAll(ls.labels); }
         }
-        if (real.size() < minInsn) return null;
-
-        int methodBytes = 65535 - BytecodeUtil.leeway(method);
-        int requiredParts = Math.max(parts, (int) Math.ceil(methodBytes / 45000.0));
-        int effectiveParts = Math.min(requiredParts, 16);
-
-        int segSize = real.size() / effectiveParts;
-        if (segSize < 5) return null;
-
-        List<MethodNode> created = new ArrayList<>();
-
-        boolean isStatic = Modifier.isStatic(method.access);
-        String baseDesc  = method.desc;
-        String retDesc   = Type.getReturnType(baseDesc).getDescriptor();
-
-        List<AbstractInsnNode> segmentEntryPoints = new ArrayList<>();
-        int realCount = 0;
-        for (AbstractInsnNode n : all) {
-            if (n.getOpcode() < 0) continue;
-            if (realCount % segSize == 0 && realCount > 0 && segmentEntryPoints.size() < effectiveParts - 1) {
-                segmentEntryPoints.add(n);
-            }
-            realCount++;
-        }
-        if (segmentEntryPoints.isEmpty()) return null;
-
-        for (AbstractInsnNode ep : segmentEntryPoints) {
-            if (ep == null) return null;
-        }
-
-        String baseName = method.name;
-        List<String> partNames = new ArrayList<>();
-        for (int i = 0; i < segmentEntryPoints.size() + 1; i++) {
-            partNames.add(baseName + "$part" + i + "_" + Integer.toHexString(rand.nextInt(0xFFFF)));
-        }
-
-        boolean isVoid = retDesc.equals("V");
-
-        for (int seg = 0; seg <= segmentEntryPoints.size(); seg++) {
-            AbstractInsnNode start = seg == 0
-                    ? method.instructions.getFirst()
-                    : segmentEntryPoints.get(seg - 1);
-            AbstractInsnNode end = seg < segmentEntryPoints.size()
-                    ? segmentEntryPoints.get(seg)
-                    : null;
-
-            if (start == null) return null;
-
-            MethodNode part = new MethodNode(
-                    ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC,
-                    partNames.get(seg),
-                    buildPartDesc(method, isStatic),
-                    null, null);
-
-            Map<LabelNode, LabelNode> labelMap = new HashMap<>();
-            AbstractInsnNode probe = start;
-            while (probe != null && probe != end) {
-                if (probe instanceof LabelNode) {
-                    labelMap.put((LabelNode) probe, new LabelNode());
-                }
-                probe = probe.getNext();
-            }
-
-            InsnList partInsns = new InsnList();
-            AbstractInsnNode cur = start;
-            while (cur != null && cur != end) {
-                AbstractInsnNode cloned = cur.clone(labelMap);
-                if (cloned != null) {
-                    partInsns.add(cloned);
-                }
-                cur = cur.getNext();
-            }
-
-            if (partInsns.size() == 0) return null;
-
-            if (seg < segmentEntryPoints.size()) {
-                AbstractInsnNode last = partInsns.getLast();
-                while (last != null && last.getOpcode() < 0) last = last.getPrevious();
-                if (last != null && BytecodeUtil.isReturning(last)) {
-                    partInsns.remove(last);
-                }
-                partInsns.add(buildCallToPart(method, isStatic, classNode.name, partNames.get(seg + 1)));
-            }
-
-            part.instructions = partInsns;
-            part.maxLocals = method.maxLocals + 2;
-            part.maxStack  = method.maxStack  + 2;
-            part.tryCatchBlocks = new ArrayList<>();
-            created.add(part);
-        }
-
-        method.instructions.clear();
-        method.instructions.add(buildCallToPart(method, isStatic, classNode.name, partNames.get(0)));
-
-        return created;
+        if (mn.tryCatchBlocks != null)
+            for (TryCatchBlockNode tcb : mn.tryCatchBlocks) targets.add(tcb.handler);
+        return targets;
     }
 
-    private String buildPartDesc(MethodNode method, boolean originalIsStatic) {
-        if (originalIsStatic) {
-            return method.desc;
-        } else {
-            Type[] args = Type.getArgumentTypes(method.desc);
-            Type   ret  = Type.getReturnType(method.desc);
-            Type[] newArgs = new Type[args.length + 1];
-            newArgs[0] = Type.getType("Ljava/lang/Object;");
-            System.arraycopy(args, 0, newArgs, 1, args.length);
-            return Type.getMethodDescriptor(ret, newArgs);
-        }
+    private AbstractInsnNode prevReal(AbstractInsnNode n) {
+        n = n.getPrevious();
+        while (n != null && n.getOpcode() < 0) n = n.getPrevious();
+        return n;
     }
 
-    private InsnList buildCallToPart(MethodNode method, boolean isStatic,
-                                     String ownerClass, String partName) {
-        String partDesc = buildPartDesc(method, isStatic);
-        Type[] args     = Type.getArgumentTypes(partDesc);
-        Type   ret      = Type.getReturnType(method.desc);
+    private List<MethodNode> doSplit(JClassNode classNode, MethodNode original,
+                                      AbstractInsnNode[] all, int cutIdx) {
+        boolean isStatic = Modifier.isStatic(original.access);
+        Type origRet = Type.getReturnType(original.desc);
+        String tailDesc = buildTailDesc(original, isStatic);
+        String tailName = original.name + "$split_" + Integer.toHexString(rand.nextInt(0xFFFF));
 
+        Map<LabelNode, LabelNode> labelMap = new HashMap<>();
+        for (int i = cutIdx; i < all.length; i++)
+            if (all[i] instanceof LabelNode ln) labelMap.put(ln, new LabelNode());
+
+        InsnList tailInsns = new InsnList();
+        for (int i = cutIdx; i < all.length; i++)
+            tailInsns.add(all[i].clone(labelMap));
+
+        MethodNode tail = new MethodNode(
+                ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC,
+                tailName, tailDesc, null,
+                original.exceptions == null ? null : original.exceptions.toArray(new String[0]));
+        tail.instructions = tailInsns;
+        tail.tryCatchBlocks = new ArrayList<>();
+        tail.maxLocals = original.maxLocals + 4;
+        tail.maxStack = original.maxStack + 4;
+
+        if (original.tryCatchBlocks != null) {
+            Set<LabelNode> tailOrigLabels = new HashSet<>();
+            for (int i = cutIdx; i < all.length; i++)
+                if (all[i] instanceof LabelNode ln) tailOrigLabels.add(ln);
+            for (TryCatchBlockNode tcb : original.tryCatchBlocks) {
+                if (tailOrigLabels.contains(tcb.start) && tailOrigLabels.contains(tcb.end)) {
+                    tail.tryCatchBlocks.add(new TryCatchBlockNode(
+                            labelMap.getOrDefault(tcb.start, tcb.start),
+                            labelMap.getOrDefault(tcb.end, tcb.end),
+                            labelMap.getOrDefault(tcb.handler, tcb.handler),
+                            tcb.type));
+                }
+            }
+        }
+
+        for (int i = cutIdx; i < all.length; i++)
+            original.instructions.remove(all[i]);
+
+        if (original.tryCatchBlocks != null) {
+            Set<LabelNode> tailOrigLabels = new HashSet<>();
+            for (int i = cutIdx; i < all.length; i++)
+                if (all[i] instanceof LabelNode ln) tailOrigLabels.add(ln);
+            original.tryCatchBlocks.removeIf(tcb ->
+                    tailOrigLabels.contains(tcb.start) && tailOrigLabels.contains(tcb.end));
+        }
+
+        original.instructions.add(buildTailCall(isStatic, classNode.name, tailName, tailDesc, origRet));
+        original.maxStack = Math.max(original.maxStack, tail.maxStack);
+
+        return List.of(tail);
+    }
+
+    private String buildTailDesc(MethodNode method, boolean isStatic) {
+        Type[] origArgs = Type.getArgumentTypes(method.desc);
+        Type ret = Type.getReturnType(method.desc);
+        if (isStatic) return method.desc;
+        Type[] newArgs = new Type[origArgs.length + 1];
+        newArgs[0] = Type.getType("Ljava/lang/Object;");
+        System.arraycopy(origArgs, 0, newArgs, 1, origArgs.length);
+        return Type.getMethodDescriptor(ret, newArgs);
+    }
+
+    private InsnList buildTailCall(boolean isStatic, String owner,
+                                    String tailName, String tailDesc, Type ret) {
         InsnListBuilder b = InsnListBuilder.builder();
-
         int slot = 0;
-        for (Type arg : args) {
+        for (Type arg : Type.getArgumentTypes(tailDesc)) {
             b.load(arg, slot);
             slot += arg.getSize();
         }
-
-        b.invokestatic(ownerClass, partName, partDesc);
-
-        if (ret.getSort() == Type.VOID) {
-            b._return();
-        } else {
-            b.list(buildReturn(ret));
+        b.invokestatic(owner, tailName, tailDesc);
+        switch (ret.getSort()) {
+            case Type.VOID    -> b._return();
+            case Type.INT, Type.BOOLEAN, Type.BYTE, Type.CHAR, Type.SHORT -> b.ireturn();
+            case Type.LONG    -> b.lreturn();
+            case Type.FLOAT   -> b.freturn();
+            case Type.DOUBLE  -> b.dreturn();
+            default           -> b.areturn();
         }
-
         return b.build();
-    }
-
-    private InsnList buildReturn(Type ret) {
-        return switch (ret.getSort()) {
-            case Type.INT, Type.BOOLEAN, Type.BYTE, Type.CHAR, Type.SHORT ->
-                    InsnListBuilder.builder().ireturn().build();
-            case Type.LONG   -> InsnListBuilder.builder().lreturn().build();
-            case Type.FLOAT  -> InsnListBuilder.builder().freturn().build();
-            case Type.DOUBLE -> InsnListBuilder.builder().dreturn().build();
-            default          -> InsnListBuilder.builder().areturn().build();
-        };
     }
 }

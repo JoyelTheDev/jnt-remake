@@ -34,12 +34,14 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
     private final double chance;
     private final int    minStrLength;
     private final boolean encryptNumbers;
+    private final boolean encryptStrings;
 
     public ConstantPoolEncryptionTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
-        this.chance         = config == null ? 100.0 : config.getDouble("chance", 100.0);
-        this.minStrLength   = config == null ? 1     : config.getInt("min-str-length", 1);
-        this.encryptNumbers = config == null || config.getBoolean("encrypt-numbers", true);
+        this.chance          = config == null ? 100.0 : config.getDouble("chance", 100.0);
+        this.minStrLength    = config == null ? 1     : config.getInt("min-str-length", 1);
+        this.encryptNumbers  = config == null || config.getBoolean("encrypt-numbers", true);
+        this.encryptStrings  = config == null || config.getBoolean("encrypt-strings", true);
     }
 
     @Override
@@ -570,8 +572,10 @@ public class ConstantPoolEncryptionTransformer extends Mutator {
     private boolean isEligible(AbstractInsnNode ain) {
         if (!(ain instanceof LdcInsnNode ldc)) return false;
         Object cst = ldc.cst;
-        if (cst instanceof String s)
+        if (cst instanceof String s) {
+            if (!encryptStrings) return false;
             return s.length() >= minStrLength;
+        }
         if (!encryptNumbers)
             return false;
         return cst instanceof Integer

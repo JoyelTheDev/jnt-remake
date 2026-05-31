@@ -17,8 +17,19 @@ import java.lang.reflect.Modifier;
 @Stability(Level.VERY_HIGH)
 public class StripTransformer extends Mutator {
 
+    private final boolean stripLocalVariables;
+    private final boolean stripSignatures;
+    private final boolean stripParameters;
+    private final boolean stripSourceInfo;
+    private final boolean stripInnerClasses;
+
     public StripTransformer(ObfuscatorContext base, ConfigurationSection config) {
         super(base, config);
+        this.stripLocalVariables = config == null || config.getBoolean("local-variables", true);
+        this.stripSignatures     = config == null || config.getBoolean("signatures", true);
+        this.stripParameters     = config == null || config.getBoolean("parameters", true);
+        this.stripSourceInfo     = config == null || config.getBoolean("source-info", true);
+        this.stripInnerClasses   = config == null || config.getBoolean("inner-classes", true);
     }
 
     @Override
@@ -26,9 +37,13 @@ public class StripTransformer extends Mutator {
         int stripped = 0;
         for (JClassNode classNode : base.getClasses()) {
             if (classNode.isExempt()) continue;
-            classNode.sourceDebug = null;
-            classNode.sourceFile = null;
-            classNode.innerClasses.clear();
+            if (stripSourceInfo) {
+                classNode.sourceDebug = null;
+                classNode.sourceFile = null;
+            }
+            if (stripInnerClasses) {
+                classNode.innerClasses.clear();
+            }
             for (MethodNode method : classNode.methods) {
                 if (classNode.isExempt(method)) continue;
                 if (Modifier.isAbstract(method.access)) continue;
@@ -38,15 +53,21 @@ public class StripTransformer extends Mutator {
                         stripped++;
                     }
                 }
-                method.localVariables = null;
-                if (method.signature != null && !method.signature.startsWith("plot::ark")) {
-                    method.signature = null;
+                if (stripLocalVariables) {
+                    method.localVariables = null;
                 }
-                method.parameters = null;
+                if (stripSignatures) {
+                    if (method.signature != null && !method.signature.startsWith("plot::ark")) {
+                        method.signature = null;
+                    }
+                }
+                if (stripParameters) {
+                    method.parameters = null;
+                }
             }
             for (var field : classNode.fields) {
                 if (classNode.isExempt(field)) continue;
-                field.signature = null;
+                if (stripSignatures) field.signature = null;
             }
         }
         Logger.INSTANCE.logln(war.jnt.dash.Level.INFO, Origin.METAPHOR,
