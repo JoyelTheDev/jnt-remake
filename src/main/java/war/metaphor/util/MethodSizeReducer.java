@@ -2,7 +2,7 @@ package war.metaphor.util;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.objectweb.asm.util.CodeSizeEvaluator;
+import org.objectweb.asm.commons.CodeSizeEvaluator;
 
 import java.lang.reflect.Modifier;
 import java.util.*;
