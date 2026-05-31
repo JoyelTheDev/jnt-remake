@@ -223,6 +223,67 @@ public class JClassNode extends ClassNode implements Opcodes {
                         ex3.getMessage()));
         }
 
+        // ── Tier 1: split oversized methods then retry ───────────────────────────
+        // COMPUTE_FRAMES, COMPUTE_MAXS, and ClassWriter(0) all failed because one or
+        // more methods exceeded the JVM 64 KB bytecode limit even after obfuscation.
+        // MethodSizeReducer splits those methods into synthetic static helpers and
+        // appends them to this class, then we retry the full emit chain.
+        try {
+            if (war.metaphor.util.MethodSizeReducer.reduce(this)) {
+                Logger.INSTANCE.logln(Level.WARNING, Origin.METAPHOR,
+                        String.format("Tier-1 (MethodSizeReducer) split oversized methods in %s (%s) — retrying emit",
+                                new Ansi().c(YELLOW).s(name).r(false).c(Ansi.Color.BRIGHT_YELLOW),
+                                new Ansi().c(YELLOW).s(realName).r(false).c(Ansi.Color.BRIGHT_YELLOW)));
+                // Retry COMPUTE_FRAMES first
+                try {
+                    cacheSymbolTable();
+                    JClassWriter writerR1 = new JClassWriter(ClassWriter.COMPUTE_FRAMES, symbolTable);
+                    symbolTable.classWriter = writerR1;
+                    accept(writerR1);
+                    Logger.INSTANCE.logln(Level.WARNING, Origin.METAPHOR,
+                            String.format("Tier-1 retry (COMPUTE_FRAMES) succeeded for %s (%s) — fully obfuscated",
+                                    new Ansi().c(YELLOW).s(name).r(false).c(Ansi.Color.BRIGHT_YELLOW),
+                                    new Ansi().c(YELLOW).s(realName).r(false).c(Ansi.Color.BRIGHT_YELLOW)));
+                    return writerR1.toByteArray();
+                } catch (Exception r1ex) {
+                    resetSymbolTable();
+                }
+                // Retry COMPUTE_MAXS
+                try {
+                    JClassWriter writerR2 = new JClassWriter(ClassWriter.COMPUTE_MAXS, symbolTable);
+                    symbolTable.classWriter = writerR2;
+                    accept(writerR2);
+                    Logger.INSTANCE.logln(Level.WARNING, Origin.METAPHOR,
+                            String.format("Tier-1 retry (COMPUTE_MAXS) succeeded for %s (%s) — fully obfuscated",
+                                    new Ansi().c(YELLOW).s(name).r(false).c(Ansi.Color.BRIGHT_YELLOW),
+                                    new Ansi().c(YELLOW).s(realName).r(false).c(Ansi.Color.BRIGHT_YELLOW)));
+                    return writerR2.toByteArray();
+                } catch (Exception r2ex) { /* fall through to ClassWriter(0) retry */ }
+                // Retry ClassWriter(0)
+                try {
+                    ClassWriter writerR3 = new ClassWriter(0);
+                    accept(writerR3);
+                    Logger.INSTANCE.logln(Level.WARNING, Origin.METAPHOR,
+                            String.format("Tier-1 retry (ClassWriter(0)) succeeded for %s (%s) — fully obfuscated",
+                                    new Ansi().c(YELLOW).s(name).r(false).c(Ansi.Color.BRIGHT_YELLOW),
+                                    new Ansi().c(YELLOW).s(realName).r(false).c(Ansi.Color.BRIGHT_YELLOW)));
+                    return writerR3.toByteArray();
+                } catch (Exception r3ex) {
+                    Logger.INSTANCE.logln(Level.WARNING, Origin.METAPHOR,
+                            String.format("Tier-1 retry also failed for %s (%s): %s",
+                                    new Ansi().c(YELLOW).s(name).r(false).c(Ansi.Color.BRIGHT_YELLOW),
+                                    new Ansi().c(YELLOW).s(realName).r(false).c(Ansi.Color.BRIGHT_YELLOW),
+                                    r3ex.getMessage()));
+                }
+            }
+        } catch (Exception reducerEx) {
+            Logger.INSTANCE.logln(Level.WARNING, Origin.METAPHOR,
+                    String.format("Tier-1 (MethodSizeReducer) threw for %s (%s): %s",
+                            new Ansi().c(YELLOW).s(name).r(false).c(Ansi.Color.BRIGHT_YELLOW),
+                            new Ansi().c(YELLOW).s(realName).r(false).c(Ansi.Color.BRIGHT_YELLOW),
+                            reducerEx.getMessage()));
+        }
+
         byte[] fallback = originalBytes;
         if (fallback == null && ObfuscatorContext.INSTANCE != null
                 && ObfuscatorContext.INSTANCE.getInput() != null

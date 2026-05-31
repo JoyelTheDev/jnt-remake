@@ -51,6 +51,7 @@ public class InstructionShuffleTransformer extends Mutator {
             Collections.shuffle(graph.getBlocks());
             for (Block block : graph.getBlocks()) {
                 if (block.isTrap()) continue;
+                if (block.isTrapHandler()) continue;
                 List<AbstractInsnNode> instructions = new ArrayList<>(block.getInstructions());
                 List<AbstractInsnNode> cloned = new ArrayList<>();
                 LabelNode lbl = block.getLabel();

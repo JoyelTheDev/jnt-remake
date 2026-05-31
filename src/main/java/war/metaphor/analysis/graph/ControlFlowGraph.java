@@ -83,6 +83,19 @@ public class ControlFlowGraph implements Opcodes {
         ClassWriter cw = new JClassWriter(ClassWriter.COMPUTE_FRAMES, sym);
         sym.classWriter = cw;
         cw.visit(classNode.version, classNode.access, classNode.name, classNode.signature, classNode.superName, classNode.interfaces.toArray(new String[0]));
+
+        // Prune any TryCatchBlockNodes that reference labels not present in the instruction list.
+        // These orphaned entries cause ASM's MethodWriter to NPE on handlerRangeBlock/outgoingEdges.
+        if (method.tryCatchBlocks != null && !method.tryCatchBlocks.isEmpty()) {
+            Set<LabelNode> presentLabels = new HashSet<>();
+            for (AbstractInsnNode insn : method.instructions)
+                if (insn instanceof LabelNode ln) presentLabels.add(ln);
+            method.tryCatchBlocks.removeIf(tcb ->
+                    !presentLabels.contains(tcb.start)
+                    || !presentLabels.contains(tcb.end)
+                    || !presentLabels.contains(tcb.handler));
+        }
+
         try {
             method.accept(cw);
         } catch (Exception ex) {

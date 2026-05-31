@@ -89,6 +89,7 @@ public class MethodSplitTransformer extends Mutator {
             if (prev == null) continue;
             if (!UNCONDITIONAL_EXIT.contains(prev.getOpcode())) continue;
             if (forwardJumpCrossed(all, i, jumpTargets)) continue;
+            if (tailStartsAtHandler(all, i, method)) continue;
 
             int dist = Math.abs(i - mid);
             if (dist < bestDist) {
@@ -118,6 +119,20 @@ public class MethodSplitTransformer extends Mutator {
                 if (tailLabels.contains(ls.dflt)) return true;
                 for (LabelNode lb : ls.labels) if (tailLabels.contains(lb)) return true;
             }
+        }
+        return false;
+    }
+
+    private boolean tailStartsAtHandler(AbstractInsnNode[] all, int cutIdx,
+                                         MethodNode method) {
+        if (method.tryCatchBlocks == null) return false;
+        Set<LabelNode> handlerLabels = new HashSet<>();
+        for (TryCatchBlockNode tcb : method.tryCatchBlocks)
+            handlerLabels.add(tcb.handler);
+        for (int i = cutIdx; i < all.length; i++) {
+            AbstractInsnNode n = all[i];
+            if (n instanceof LabelNode ln && handlerLabels.contains(ln)) return true;
+            if (n.getOpcode() >= 0) break;
         }
         return false;
     }
@@ -169,7 +184,8 @@ public class MethodSplitTransformer extends Mutator {
             for (int i = cutIdx; i < all.length; i++)
                 if (all[i] instanceof LabelNode ln) tailOrigLabels.add(ln);
             for (TryCatchBlockNode tcb : original.tryCatchBlocks) {
-                if (tailOrigLabels.contains(tcb.start) && tailOrigLabels.contains(tcb.end)) {
+                if (tailOrigLabels.contains(tcb.start) && tailOrigLabels.contains(tcb.end)
+                        && tailOrigLabels.contains(tcb.handler)) {
                     tail.tryCatchBlocks.add(new TryCatchBlockNode(
                             labelMap.getOrDefault(tcb.start, tcb.start),
                             labelMap.getOrDefault(tcb.end, tcb.end),
@@ -187,7 +203,8 @@ public class MethodSplitTransformer extends Mutator {
             for (int i = cutIdx; i < all.length; i++)
                 if (all[i] instanceof LabelNode ln) tailOrigLabels.add(ln);
             original.tryCatchBlocks.removeIf(tcb ->
-                    tailOrigLabels.contains(tcb.start) && tailOrigLabels.contains(tcb.end));
+                    tailOrigLabels.contains(tcb.start) && tailOrigLabels.contains(tcb.end)
+                            && tailOrigLabels.contains(tcb.handler));
         }
 
         original.instructions.add(buildTailCall(isStatic, classNode.name, tailName, tailDesc, origRet));
